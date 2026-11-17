@@ -78,6 +78,11 @@ def check_value(entry, value, where):
             problem(f"{where}: {key} should be a file name, got {value!r}")
         elif not (ROOT / "assets" / "handwriting" / value).exists():
             problem(f"{where}: {key}: file assets/handwriting/{value} does not exist")
+    elif t == "fontFile":
+        if not isinstance(value, str):
+            problem(f"{where}: {key} should be a file name, got {value!r}")
+        elif value and not (ROOT / "assets" / "fonts" / value).exists():
+            problem(f"{where}: {key}: font file assets/fonts/{value} does not exist")
     elif t == "stringList":
         if not isinstance(value, list) or not all(isinstance(v, str) and v for v in value):
             problem(f"{where}: {key} should be a list of (non-empty) text values")

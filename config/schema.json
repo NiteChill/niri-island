@@ -17,7 +17,8 @@
     "stringList": "List of text values.",
     "command": "A command: list of program then arguments. {path} is replaced by the file path, {uri} by its file:// address.",
     "integerList": "List of whole numbers. Uses min / max / unit for each value.",
-    "handwriting": "File name of an SVG in assets/handwriting: stroked <path> elements and a viewBox, drawn in order."
+    "handwriting": "File name of an SVG in assets/handwriting: stroked <path> elements and a viewBox, drawn in order.",
+    "fontFile": "File name of a font in assets/fonts, or \"\" for none."
   },
   "springFields": [
     {
@@ -73,7 +74,7 @@
               "key": "font.bundled",
               "label": "Bundled font file",
               "description": "A font file in the island's assets/fonts folder, loaded when the island starts so the text looks the same on every computer. Empty = only installed fonts.",
-              "type": "string",
+              "type": "fontFile",
               "default": "GoogleSansFlex-Variable.ttf",
               "advanced": true
             },

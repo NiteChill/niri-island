@@ -321,7 +321,8 @@ it looks the same without the font installed. A font file loaded by the app regi
 weight: every text also sets the variable `wght` axis to its weight, next to `ROND` (StyledText does
 it by hand in _syncAxes: a binding reading font.weight into the same font looped; the two TextInputs and
 RollingNumber's metrics set both axes). Checked with a fontconfig that hides ~/.local/share/fonts:
-bundled = semibold Google Sans Flex, identical to the installed one; without it, Noto Sans.
+bundled = semibold Google Sans Flex, identical to the installed one; without it, Noto Sans. The file is a
+`fontFile` setting: check-config.py fails if it's missing from assets/fonts.
 Never a bare `Text {}`. `widgets/StyledText.qml` applies `Config.font` (family, size, weight, color, and
 `roundness` = the font's `ROND` axis via `font.variableAxes`; Google Sans Flex, the default since 2026-11-13,
 rounds its letter ends). One font everywhere: never give a mode its own font family or roundness (the user

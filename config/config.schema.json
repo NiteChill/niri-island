@@ -1,0 +1,7 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$comment": "Tells editors (Zed, VS Code) that config.jsonc may contain comments and trailing commas. The settings themselves are described in schema.json.",
+    "type": "object",
+    "allowComments": true,
+    "allowTrailingCommas": true
+}

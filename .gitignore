@@ -1,0 +1,11 @@
+# Python bytecode (tools/, bin/)
+__pycache__/
+*.pyc
+
+# editors and tools
+.qmlls.ini
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store

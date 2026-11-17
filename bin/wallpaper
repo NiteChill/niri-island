@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""The wallpaper, for the island's wallpaper panel (run by services/Sys.qml).
+
+  wallpaper list EXTS DEPTH FOLDER...
+                                  the pictures in the folders (globs, ~ allowed), one path per line:
+                                  folder by folder, each sorted by path, at most DEPTH levels down
+                                  (1 = only the folder itself), like the Settings app's list;
+                                  EXTS = comma-separated extensions ("jpg,png")
+  wallpaper current               the picture shown now (empty if unknown)
+  wallpaper set PATH              show PATH now and keep it after a restart
+
+Same place as the desktop Settings app: niri starts swaybg from a `spawn-at-startup "sh" "-c" "pkill -x
+swaybg; exec swaybg ..."` line in ~/.config/niri/settings.kdl (the app's file, included last by
+config.kdl). `set` rewrites that one line (or adds it), written whole at once (the app watches the file),
+then restarts swaybg the same way. `current` reads it back, else config.kdl's own `swaybg -i`.
+"""
+import glob
+import os
+import re
+import subprocess
+import sys
+
+NIRI = os.path.expanduser("~/.config/niri")
+OWN = os.path.join(NIRI, "settings.kdl")
+MAIN = os.path.join(NIRI, "config.kdl")
+SCRIPT = 'pkill -x swaybg; exec swaybg -m %s -i "$1"'
+LINE = re.compile(r'^spawn-at-startup "sh" "-c" "pkill -x swaybg[^\n]*$', re.M)
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def kdl_strings(line):
+    return [re.sub(r'\\(.)', r'\1', s) for s in re.findall(r'"((?:[^"\\]|\\.)*)"', line)]
+
+
+def current():
+    m = LINE.search(read(OWN))
+    if m:
+        a = kdl_strings(m.group(0))
+        return a[4] if len(a) > 4 else ""
+    for line in read(MAIN).splitlines():
+        a = kdl_strings(line) if line.startswith("spawn-at-startup") else []
+        if a and a[0] == "swaybg" and "-i" in a and a.index("-i") + 1 < len(a):
+            return a[a.index("-i") + 1]
+    return ""
+
+
+def mode():
+    m = LINE.search(read(OWN))
+    found = re.search(r'-m (\w+)', m.group(0)) if m else None
+    return found.group(1) if found else "fill"
+
+
+def kdl(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def set_wallpaper(path):
+    script = SCRIPT % mode()
+    line = "spawn-at-startup " + " ".join(kdl(s) for s in ["sh", "-c", script, "sh", path])
+    text = read(OWN)
+    if LINE.search(text):
+        text = LINE.sub(lambda _: line, text, count=1)
+    else:
+        text = (text + ("" if text.endswith("\n") or not text else "\n")) + line + "\n"
+    os.makedirs(NIRI, exist_ok=True)
+    tmp = OWN + ".wallpaper-tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, OWN)
+    subprocess.Popen(["sh", "-c", script, "sh", path], start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def listing(exts, depth, folders):
+    exts = {"." + e.strip().lower().lstrip(".") for e in exts.split(",") if e.strip()}
+    seen = set()
+    for pattern in folders:
+        for folder in sorted(glob.glob(os.path.expanduser(pattern))):
+            found = []
+            for root, dirs, files in os.walk(folder, followlinks=True):
+                level = os.path.relpath(root, folder).count(os.sep) + (0 if root == folder else 1)
+                dirs[:] = [d for d in dirs if not d.startswith(".")] if level + 1 < depth else []
+                found += [os.path.join(root, n) for n in files if os.path.splitext(n)[1].lower() in exts]
+            for path in sorted(found):
+                if path not in seen:
+                    seen.add(path)
+                    print(path)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) >= 2 and sys.argv[1] == "current":
+        print(current())
+    elif len(sys.argv) == 3 and sys.argv[1] == "set":
+        set_wallpaper(sys.argv[2])
+    elif len(sys.argv) >= 4 and sys.argv[1] == "list":
+        listing(sys.argv[2], int(sys.argv[3]), sys.argv[4:])
+    else:
+        sys.exit(__doc__)

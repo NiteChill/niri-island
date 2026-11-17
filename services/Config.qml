@@ -19,6 +19,12 @@ Singleton {
     property var data: build(userFile.text(), schemaFile.text())
 
     readonly property var font: data.font
+    // the island's own font, shipped in assets/fonts (font.bundled; SIL Open Font License): registered
+    // for this process when the config is first read, before any text asks for it, so the island looks
+    // the same on every computer, with or without the font installed
+    FontLoader {
+        source: root.font && root.font.bundled ? Qt.resolvedUrl("../assets/fonts/" + root.font.bundled) : ""
+    }
     // colors, with the accent replaced by the system's (see _withAccent)
     readonly property var colors: _withAccent(data.colors)
     // colors.followSystemAccent: the desktop's accent name (systemAccent) looked up in colors.systemAccents

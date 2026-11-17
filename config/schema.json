@@ -65,9 +65,17 @@
             {
               "key": "font.family",
               "label": "Font",
-              "description": "Font used for all text in the shell. Roundness only works with fonts that have a roundness axis, like Google Sans Flex.",
+              "description": "Font used for all text in the shell. Roundness only works with fonts that have a roundness axis, like Google Sans Flex. The island ships Google Sans Flex (font.bundled), so it is there even when it isn't installed.",
               "type": "font",
               "default": "Google Sans Flex"
+            },
+            {
+              "key": "font.bundled",
+              "label": "Bundled font file",
+              "description": "A font file in the island's assets/fonts folder, loaded when the island starts so the text looks the same on every computer. Empty = only installed fonts.",
+              "type": "string",
+              "default": "GoogleSansFlex-Variable.ttf",
+              "advanced": true
             },
             {
               "key": "font.size",

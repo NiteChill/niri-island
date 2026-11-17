@@ -315,6 +315,13 @@ harmless, it keeps the previous values). config.jsonc isn't plain JSON: parse it
   `qs` ignores SIGINT and stays on screen.
 
 ### Text: always `StyledText`
+The font ships with the island (2026-11-17, for the public release): assets/fonts/GoogleSansFlex-Variable.ttf
+(OFL 1.1, assets/fonts/OFL.txt), loaded by Config's FontLoader (font.bundled) before any text asks, so
+it looks the same without the font installed. A font file loaded by the app registers only its default
+weight: every text also sets the variable `wght` axis to its weight, next to `ROND` (StyledText does
+it by hand in _syncAxes: a binding reading font.weight into the same font looped; the two TextInputs and
+RollingNumber's metrics set both axes). Checked with a fontconfig that hides ~/.local/share/fonts:
+bundled = semibold Google Sans Flex, identical to the installed one; without it, Noto Sans.
 Never a bare `Text {}`. `widgets/StyledText.qml` applies `Config.font` (family, size, weight, color, and
 `roundness` = the font's `ROND` axis via `font.variableAxes`; Google Sans Flex, the default since 2026-11-13,
 rounds its letter ends). One font everywhere: never give a mode its own font family or roundness (the user

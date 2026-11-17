@@ -41,7 +41,8 @@ Item {
         id: metrics
         font.family: Config.font.family
         font.variableAxes: ({
-                "ROND": Config.font.roundness
+                "ROND": Config.font.roundness,
+                "wght": number.weight
             })
         font.pixelSize: number.pixelSize
         font.weight: number.weight

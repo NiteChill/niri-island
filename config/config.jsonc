@@ -1255,6 +1255,7 @@
         // "roundness": 100,
         // "family": "Google Sans Flex",
         // "color": "#f2f2f2",
+        // "bundled": "GoogleSansFlex-Variable.ttf",
     },
     "bar": {
         // "gaps": 3,

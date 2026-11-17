@@ -534,7 +534,8 @@ IslandMode {
                             color: Config.font.color
                             font.family: Config.font.family
                             font.variableAxes: ({
-                                    "ROND": Config.font.roundness
+                                    "ROND": Config.font.roundness,
+                                    "wght": Config.font.weight
                                 })
                             font.weight: Config.font.weight
                             font.pixelSize: Config.font.size

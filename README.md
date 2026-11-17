@@ -33,7 +33,8 @@ It is a community project, not part of niri.
 - Screenshots as you take them, low battery, charging, headphones, Wi-Fi connected, music starting.
 - A handwritten goodbye when you power off or restart.
 
-Everything you can see is a setting: sizes, colours, corners, springs, timings, icons, texts.
+Its font, Google Sans Flex, comes with it (the rounded letter ends are part of the look): nothing to
+install. Everything you can see is a setting: sizes, colours, corners, springs, timings, icons, texts.
 `config/schema.json` describes every one of them; your choices go in `config/config.jsonc`.
 
 ## Works with niri-settings
@@ -69,8 +70,6 @@ Required:
 
 Optional:
 
-- **Google Sans Flex**, the island's font ([Google Fonts](https://fonts.google.com/specimen/Google+Sans+Flex),
-  into `~/.local/share/fonts`). Without it, the system's sans-serif font is used.
 - `brightnessctl`: brightness keys and the brightness slider (laptops).
 - `cava`: the music bars follow the real sound (otherwise they dance on their own).
 - `python3-gobject` (Fedora) / `python-gobject` (Arch): drag screenshots into sandboxed apps (Flatpaks).
@@ -127,5 +126,5 @@ range). After editing, `python3 tools/check-config.py` checks the file.
 
 ## Licence
 
-GNU General Public License v3.0 or later: see `LICENSE`. The icons are Material Symbols (Apache-2.0):
-see `THIRD-PARTY.md`.
+GNU General Public License v3.0 or later: see `LICENSE`. The icons are Material Symbols (Apache-2.0)
+and the font is Google Sans Flex (SIL Open Font License 1.1): see `THIRD-PARTY.md`.

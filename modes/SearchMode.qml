@@ -632,7 +632,8 @@ IslandMode {
             selectionColor: Qt.rgba(1, 1, 1, mode.layout.textSelectionOpacity)
             font.family: Config.font.family
             font.variableAxes: ({
-                    "ROND": Config.font.roundness
+                    "ROND": Config.font.roundness,
+                    "wght": Config.font.weight
                 })
             font.weight: Config.font.weight
             font.pixelSize: mode.layout.inputSize

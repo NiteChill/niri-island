@@ -7,6 +7,8 @@ shows what happens on the computer as it happens.
 
 It is a community project, not part of niri.
 
+![The island at rest, then open on the music, quick settings and the time](docs/hero.png)
+
 ## What it does
 
 **Panels** (click the island, a shortcut, or its launcher):
@@ -20,6 +22,8 @@ It is a community project, not part of niri.
 - **Battery**, **Time** (with the day and the week), **Now playing** (cover, controls, a fullscreen view).
 - **Wallpaper** and **Screenshots**: a carousel of pictures. Pick a wallpaper; copy a screenshot with
   Enter (Shift+Enter shows it in Files) or drag it out of the island into an app.
+
+![A notification, the search and the battery panel](docs/panels.png)
 
 **Pop-ups** (the island shows them, in order of importance):
 
@@ -43,6 +47,8 @@ and this island, made to go with it. Each works without the other; together:
   are the desktop's, so changing one in either place changes both.
 - The island's search finds the Settings app's settings ("night light" opens that page).
 - Clicking a system notification (network, Bluetooth, printers...) opens the matching Settings page.
+
+<img src="https://raw.githubusercontent.com/NiteChill/niri-settings/main/docs/island.png" alt="niri-settings' Dynamic Island page: corner style, position, material" width="720">
 
 Without the island, niri-settings simply hides the island's options; without the Settings app, the
 island's settings are in `config/config.jsonc`.

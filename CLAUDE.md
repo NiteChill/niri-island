@@ -807,6 +807,9 @@ the Settings app as https://github.com/NiteChill/niri-settings. README.md is for
 how it works with niri-settings, what it needs (Fedora / Arch packages), install (clone into
 ~/.config/quickshell, niri spawn + binds). Keep it true when a dependency, a panel or an IPC call
 changes. THIRD-PARTY.md credits Material Symbols. Commits use GitHub's noreply address.
+docs/hero.png and docs/panels.png (the README's pictures) are made from the Settings app's repository:
+tools/capture-island.py (stages a copy of this island with made-up data and grabs each state) then
+tools/readme-images.py; remake them when the island's look changes.
 
 ## Reviews (the user's way, 2026-11-17)
 When asked to review something (a mode, a change, the day's work): first give it a grade out of 10 with

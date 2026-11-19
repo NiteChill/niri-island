@@ -243,24 +243,12 @@
             {
               "key": "screenCorners.smoothing",
               "label": "Corner smoothness",
-              "description": "How gently the screen corners curve, like the island's corners (Island > Corner smoothness): the curve starts earlier and blends into the screen's edges. 0 = plain quarter circles. When the media panel fills the screen, the island's corners take this smoothness, so they match the screen's.",
+              "description": "How gently the screen corners curve, like the island's corners (Island > Corner smoothness): the curve starts earlier and blends into the screen's edges. 0 = plain quarter circles.",
               "type": "number",
               "min": 0,
               "max": 1,
               "step": 0.05,
               "default": 0.6
-            },
-            {
-              "key": "screenCorners.islandOverlap",
-              "label": "Fullscreen island overlap",
-              "description": "When the media panel fills the screen, the island's corners end up this much tighter than the screen's, so the island reaches just under them. Two edges in exactly the same place leave a thin, faint line between them.",
-              "type": "number",
-              "min": 0,
-              "max": 10,
-              "step": 0.5,
-              "unit": "px",
-              "advanced": true,
-              "default": 2
             },
             {
               "key": "screenCorners.color",
@@ -961,26 +949,6 @@
               "default": {
                 "response": 0.36,
                 "dampingFraction": 0.85
-              }
-            },
-            {
-              "key": "island.fullscreenExpand",
-              "label": "Grow to fullscreen",
-              "description": "Spring used when the island grows to fill the screen (the media panel's fullscreen). Slower than Grow: it travels much further. Lower damping bounces more.",
-              "type": "spring",
-              "default": {
-                "response": 0.6,
-                "dampingFraction": 0.88
-              }
-            },
-            {
-              "key": "island.fullscreenShrink",
-              "label": "Shrink from fullscreen",
-              "description": "Spring used when the island comes back from filling the screen.",
-              "type": "spring",
-              "default": {
-                "response": 0.5,
-                "dampingFraction": 0.9
               }
             }
           ]
@@ -2607,12 +2575,13 @@
             {
               "key": "idle.transition",
               "label": "Idle transition overrides",
-              "description": "Transition settings that apply only to the idle island. Same keys as Animation > Content transition.",
+              "description": "Transition settings that apply only to the idle island. Same keys as Animation > Content transition. Handoff 0: the idle island waits until the closing panel's content is fully gone before it fades in.",
               "type": "object",
               "advanced": true,
               "default": {
                 "fadeInStart": 0.2,
-                "fadeOut": 180
+                "fadeOut": 180,
+                "handoff": 0
               },
               "overrides": "island.transition"
             }
@@ -4373,6 +4342,13 @@
               "default": 12
             },
             {
+              "key": "media.progress.unknownTime",
+              "label": "Unknown time",
+              "description": "Shown in place of both times when the player doesn't say how long the track is or where it's at (YouTube Music in a browser often doesn't, live streams never do). The bar then stays empty and can't be dragged; the panel keeps its size.",
+              "type": "string",
+              "default": "--:--"
+            },
+            {
               "key": "media.progress.scrollStep",
               "label": "Scroll step",
               "description": "How far one notch of the mouse wheel moves in the track.",
@@ -4417,30 +4393,6 @@
               "step": 1,
               "unit": "ms",
               "default": 33,
-              "advanced": true
-            },
-            {
-              "key": "media.progress.fadeDuration",
-              "label": "Fade in",
-              "description": "When the player starts or stops giving the track's length while the panel is open: how long the progress bar takes to fade in once the island has grown for it (or to fade out before it shrinks).",
-              "type": "integer",
-              "min": 0,
-              "max": 2000,
-              "step": 10,
-              "unit": "ms",
-              "default": 260,
-              "advanced": true
-            },
-            {
-              "key": "media.progress.popFrom",
-              "label": "Scale in from",
-              "description": "Size the progress bar starts at as it fades in.",
-              "type": "number",
-              "min": 0.5,
-              "max": 1,
-              "step": 0.01,
-              "unit": "×",
-              "default": 0.92,
               "advanced": true
             }
           ]
@@ -4570,359 +4522,6 @@
               "description": "One triangle of the previous / next buttons: drawn twice side by side (mirrored for previous), so skipping can push a new one in.",
               "type": "icon",
               "default": "skip-triangle.svg"
-            }
-          ]
-        },
-        {
-          "id": "fullscreen",
-          "title": "Fullscreen",
-          "description": "Double-click an empty spot of the media panel: the island grows to fill the screen, the cover flies to a big picture in the middle (its own proportions) with the title and artist growing under it, over a very blurry copy of the picture (black without one), and the progress bar and the controls go to the bottom, bigger. The badge at the top right, Escape or another double-click go back.",
-          "settings": [
-            {
-              "key": "media.fullscreen.enabled",
-              "label": "Double-click for fullscreen",
-              "description": "Double-clicking an empty spot of the media panel fills the screen with it.",
-              "type": "boolean",
-              "default": true
-            },
-            {
-              "key": "media.fullscreen.controlsScale",
-              "label": "Controls size",
-              "description": "How much bigger previous, play / pause and next get in fullscreen.",
-              "type": "number",
-              "min": 1,
-              "max": 4,
-              "step": 0.05,
-              "unit": "×",
-              "default": 1.6
-            },
-            {
-              "key": "media.fullscreen.progressScale",
-              "label": "Progress bar size",
-              "description": "How much bigger the progress bar and its times get in fullscreen (it also stretches across the screen).",
-              "type": "number",
-              "min": 1,
-              "max": 4,
-              "step": 0.05,
-              "unit": "×",
-              "default": 1.4
-            },
-            {
-              "key": "media.fullscreen.sideMargin",
-              "label": "Space at the sides",
-              "description": "Space between the screen's sides and the ends of the progress row in fullscreen.",
-              "type": "integer",
-              "min": 0,
-              "max": 600,
-              "step": 4,
-              "unit": "px",
-              "default": 160
-            },
-            {
-              "key": "media.fullscreen.bottomMargin",
-              "label": "Space below",
-              "description": "Space between the bottom of the screen and the controls in fullscreen.",
-              "type": "integer",
-              "min": 0,
-              "max": 400,
-              "step": 2,
-              "unit": "px",
-              "default": 56
-            },
-            {
-              "key": "media.fullscreen.gap",
-              "label": "Space above the controls",
-              "description": "Space between the progress bar and the controls in fullscreen.",
-              "type": "integer",
-              "min": 0,
-              "max": 200,
-              "step": 1,
-              "unit": "px",
-              "default": 28
-            },
-            {
-              "key": "media.fullscreen.background",
-              "label": "Background",
-              "description": "Color behind everything in fullscreen when there's no cover or thumbnail; also darkens the blurry background and the shade at the bottom.",
-              "type": "color",
-              "default": "#000000"
-            },
-            {
-              "key": "media.fullscreen.art.heightShare",
-              "label": "Picture height",
-              "description": "Height of the cover or video thumbnail in fullscreen, as a share of the screen's height (0.5 = half). It keeps its own proportions, and is never wider than the progress bar.",
-              "type": "number",
-              "min": 0.1,
-              "max": 0.9,
-              "step": 0.05,
-              "unit": "×",
-              "default": 0.5
-            },
-            {
-              "key": "media.fullscreen.art.resize",
-              "label": "Picture reshape",
-              "description": "Spring used when the next track's picture has other proportions (a video thumbnail after an album cover): the picture smoothly changes shape. Lower damping bounces more.",
-              "type": "spring",
-              "default": {
-                "response": 0.5,
-                "dampingFraction": 0.9
-              }
-            },
-            {
-              "key": "media.fullscreen.art.shadow.opacity",
-              "label": "Picture shadow",
-              "description": "How dark the soft shadow under the picture is in fullscreen. 0 = no shadow.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "unit": "%",
-              "display": "percent",
-              "default": 0.45
-            },
-            {
-              "key": "media.fullscreen.art.shadow.blur",
-              "label": "Shadow softness",
-              "description": "How far the picture's shadow spreads out and fades (bigger = softer, wider).",
-              "type": "integer",
-              "min": 0,
-              "max": 200,
-              "step": 1,
-              "unit": "px",
-              "default": 90
-            },
-            {
-              "key": "media.fullscreen.art.shadow.offset",
-              "label": "Shadow drop",
-              "description": "How far below the picture its shadow falls, as if lit from above.",
-              "type": "integer",
-              "min": -50,
-              "max": 100,
-              "step": 1,
-              "unit": "px",
-              "default": 14
-            },
-            {
-              "key": "media.fullscreen.art.shadow.spread",
-              "label": "Shadow size",
-              "description": "How much bigger than the picture the shadow is before it fades.",
-              "type": "integer",
-              "min": -50,
-              "max": 100,
-              "step": 1,
-              "unit": "px",
-              "advanced": true,
-              "default": 0
-            },
-            {
-              "key": "media.fullscreen.art.position",
-              "label": "Picture position",
-              "description": "Where the picture, the title and the artist sit in fullscreen: in the middle, or at the left (lined up with the progress bar's left end). Either way they're centred, together, in the space above the progress bar.",
-              "type": "string",
-              "choices": [
-                "center",
-                "left"
-              ],
-              "default": "center"
-            },
-            {
-              "key": "media.fullscreen.text.titleScale",
-              "label": "Title size",
-              "description": "How much bigger the track's title gets in fullscreen, where it sits under the picture.",
-              "type": "number",
-              "min": 1,
-              "max": 4,
-              "step": 0.05,
-              "unit": "×",
-              "default": 1.75
-            },
-            {
-              "key": "media.fullscreen.text.artistScale",
-              "label": "Artist size",
-              "description": "How much bigger the artist gets in fullscreen, under the title.",
-              "type": "number",
-              "min": 1,
-              "max": 4,
-              "step": 0.05,
-              "unit": "×",
-              "default": 1.4
-            },
-            {
-              "key": "media.fullscreen.text.lineGap",
-              "label": "Space between the lines",
-              "description": "Space between the title and the artist in fullscreen.",
-              "type": "integer",
-              "min": 0,
-              "max": 40,
-              "step": 1,
-              "unit": "px",
-              "default": 4
-            },
-            {
-              "key": "media.fullscreen.text.gapAbove",
-              "label": "Space above the title",
-              "description": "Space between the picture and the title in fullscreen.",
-              "type": "integer",
-              "min": 0,
-              "max": 120,
-              "step": 1,
-              "unit": "px",
-              "default": 24
-            },
-            {
-              "key": "media.fullscreen.text.gapBelow",
-              "label": "Space below the artist",
-              "description": "Smallest space between the artist and the progress bar in fullscreen (the picture and the text are centred in the space above it).",
-              "type": "integer",
-              "min": 0,
-              "max": 200,
-              "step": 1,
-              "unit": "px",
-              "default": 40
-            },
-            {
-              "key": "media.fullscreen.text.riseShare",
-              "label": "Text stays under the picture",
-              "description": "The title and artist follow the picture's bottom edge. On the way back from fullscreen they stay under it until this share of the way is left (0.3 = the last 30 %), then slide up beside the small cover, keeping to the right of the picture; going fullscreen, the reverse.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "advanced": true,
-              "default": 0.3
-            },
-            {
-              "key": "media.fullscreen.backdrop.blur",
-              "label": "Background blur",
-              "description": "How blurry the copy of the picture behind everything is.",
-              "type": "integer",
-              "min": 0,
-              "max": 64,
-              "step": 1,
-              "unit": "px",
-              "default": 64
-            },
-            {
-              "key": "media.fullscreen.backdrop.dim",
-              "label": "Background darkening",
-              "description": "How much the blurry background is darkened, so the picture and the controls stand out.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "unit": "%",
-              "display": "percent",
-              "default": 0.65
-            },
-            {
-              "key": "media.fullscreen.backdrop.sampleSize",
-              "label": "Background detail",
-              "description": "The background picture is shrunk to about this size before being blurred: smaller is blurrier and lighter for the computer.",
-              "type": "integer",
-              "min": 8,
-              "max": 512,
-              "step": 8,
-              "unit": "px",
-              "advanced": true,
-              "default": 64
-            },
-            {
-              "key": "media.fullscreen.backdrop.overscan",
-              "label": "Background overscan",
-              "description": "The blurry background is drawn this much bigger than the screen, so its soft, see-through edges stay out of sight.",
-              "type": "number",
-              "min": 1,
-              "max": 2,
-              "step": 0.05,
-              "unit": "×",
-              "advanced": true,
-              "default": 1.3
-            },
-            {
-              "key": "media.fullscreen.scrimHeight",
-              "label": "Bottom shade height",
-              "description": "Height of the dark band at the bottom of the screen that keeps the controls readable over a bright picture.",
-              "type": "integer",
-              "min": 0,
-              "max": 1000,
-              "step": 10,
-              "unit": "px",
-              "default": 360
-            },
-            {
-              "key": "media.fullscreen.scrimOpacity",
-              "label": "Bottom shade strength",
-              "description": "How dark that band gets at the very bottom.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "unit": "%",
-              "display": "percent",
-              "default": 0.7
-            },
-            {
-              "key": "media.fullscreen.imageFade",
-              "label": "Picture fade in",
-              "description": "How long the blurry background takes to fade in once the picture is loaded.",
-              "type": "integer",
-              "min": 0,
-              "max": 2000,
-              "step": 10,
-              "unit": "ms",
-              "advanced": true,
-              "default": 300
-            },
-            {
-              "key": "media.fullscreen.topRowFade",
-              "label": "Top row fade",
-              "description": "The title and bars at the top fade away during the first part of the growth, this share of it (0.3 = the first 30 %), while the blurry background comes in; on the way back, the reverse over the last part. The exit button fades in during the same share at the end.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "advanced": true,
-              "default": 0.3
-            },
-            {
-              "key": "media.fullscreen.exit.icon",
-              "label": "Exit icon",
-              "description": "Icon of the button at the top right that leaves fullscreen.",
-              "type": "icon",
-              "default": "close-fullscreen.svg"
-            },
-            {
-              "key": "media.fullscreen.exit.size",
-              "label": "Exit button size",
-              "description": "Size of the round button that leaves fullscreen.",
-              "type": "integer",
-              "min": 16,
-              "max": 96,
-              "step": 1,
-              "unit": "px",
-              "default": 40
-            },
-            {
-              "key": "media.fullscreen.exit.iconSize",
-              "label": "Exit icon size",
-              "description": "Size of the icon in that button.",
-              "type": "integer",
-              "min": 8,
-              "max": 64,
-              "step": 1,
-              "unit": "px",
-              "default": 20
-            },
-            {
-              "key": "media.fullscreen.exit.margin",
-              "label": "Exit button spacing",
-              "description": "Space between the exit button and the top and right edges of the screen.",
-              "type": "integer",
-              "min": 0,
-              "max": 200,
-              "step": 1,
-              "unit": "px",
-              "default": 20
             }
           ]
         },

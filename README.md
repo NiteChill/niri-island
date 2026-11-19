@@ -19,7 +19,7 @@ It is a community project, not part of niri.
 - **Quick settings**: Wi-Fi, Bluetooth, Focus (do not disturb), microphone, power mode, brightness and
   volume.
 - **Wi-Fi** and **Bluetooth**: nearby networks and devices, connect, pair.
-- **Battery**, **Time** (with the day and the week), **Now playing** (cover, controls, a fullscreen view).
+- **Battery**, **Time** (with the day and the week), **Now playing** (cover, progress, controls).
 - **Wallpaper** and **Screenshots**: a carousel of pictures. Pick a wallpaper; copy a screenshot with
   Enter (Shift+Enter shows it in Files) or drag it out of the island into an app.
 

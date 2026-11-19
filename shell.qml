@@ -80,9 +80,8 @@ ShellRoot {
 
         // position/size
         exclusiveZone: Config.bar.height
-        // constant, never animated: room for the tallest island. A fullscreen mode (the media panel's
-        // fullscreen): the whole screen, from the moment it's asked until the island is back within it
-        implicitHeight: island.fullscreen || island.expansion > 0 ? screen.height : Config.island.maxHeight
+        // constant, never animated: room for the tallest island
+        implicitHeight: Config.island.maxHeight
         anchors {
             top: true
             left: true
@@ -136,8 +135,7 @@ ShellRoot {
             current: root.islandState
             keyboardOpened: root.keyboardOpened
             // attached to the top edge: no gap above it, only below
-            // (the gap goes as the island fills the screen)
-            y: topGap * (1 - expansion)
+            y: topGap
             screenWidth: topBar.screen.width
             screenHeight: topBar.screen.height
             anchors.horizontalCenter: parent.horizontalCenter

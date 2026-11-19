@@ -106,8 +106,6 @@ widgets/               reusable pieces used by modes
   mode blurs what's behind with its `t`; `quickSettings.power.menu.*`)
   MediaBars (the "now playing" bars: real levels from cava, else a dance; move only while `running`)
   MediaCover (the track's cover as a rounded tile, a note without one; media panel + NowPlayingMode)
-  SwapImage (two Images taking turns: keeps the previous picture until the next has loaded; draw `current`
-  through an effect. The fullscreen picture and backdrop: a plain Image went blank on each track change)
   PictureCarousel (the wallpaper / screenshots card row: selection spring, bump, press, drag / wheel, check
   badge, optional drag-out of the front card as a real file drag; look in `carousel.*`)
   PanelList (the Wi-Fi / Bluetooth list chrome: group titles, springing highlight, pointer selection,
@@ -394,7 +392,7 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
 - Search: Raycast-style launcher: magnifier, hairline, results grouped under grey section titles (groups ordered
   by best match), icons on soft rounded tiles, kind at the right, "Open ↵" keycap on the selection; scrolls.
   Pins (2026-11-15): with nothing typed it shows the pinned panels / apps / commands as tiles (icon + name,
-  search.pins.columns per row; no title above them: the user asked for just the tiles), with the lists'
+  search.pins.columns per row, each row centred (a short last row sits in the middle, 2026-11-19; Up / Down go to the tile visually above / below, SearchMode.pinMoveRow, and hovering the empty space beside a short row selects nothing, tileAt); no title above them: the user asked for just the tiles), with the lists'
   sliding highlight; arrows move, Enter opens, Ctrl+Left / Right or dragging a tile reorders (tiles are a
   ListModel moved in place, so each slides to its new slot with the highlight's spring; the dragged one
   follows the pointer), Ctrl+P (search.pins.key) or a right-click pins / unpins a result or tile; pinned
@@ -487,40 +485,22 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   source: MediaPlaybackStatus "Count != 1"; YouTube Music's song-page clip, YouTube's previews): no length,
   Position 0, no signals. A track that had a length keeps it (Sys._knownLength, same player + title +
   artist) and Sys counts the time itself, no seeking (media.lengthGuessed); a track that never had one has
-  no progress row (MediaMode.hasTimeline). Tested with a fake player (2026-11-15).
-  When the length arrives or goes while the panel is open (Zen sends it once the page's clip element goes,
-  often on a pause), the island springs to the new height with the controls riding its bottom edge (the
-  content follows island.height while `resizing`; an animated implicitHeight made the controls move first and
-  the island follow late), then the row fades and scales in; going, the reverse, the row keeping its last
-  length (rowLength) while it fades. Dragging only previews; the seek is sent on release (the wheel: debounced).
+  no timing (MediaMode.hasTimeline). Tested with a fake player (2026-11-15).
+  Untimed (2026-11-19, "broken half the time"): Firefox / Zen build both Position and mpris:length from
+  the page's navigator.mediaSession.setPositionState (GetPositionSeconds is 0 and the length key is left
+  out without it); YouTube Music in Zen often sends none, even across track changes (checked with
+  busctl). The row then stayed hidden and the panel changed height whenever the timing came or went,
+  which read as broken. Now the progress row is always there and the panel never changes height (iOS
+  shows --:--, Plasma disables its bar): untimed = empty bar, not draggable, media.progress.unknownTime
+  for both times. The old resize-with-the-row animation (resizing / timelineRoom / rowIn / rowOut) is
+  gone. Sys prefers a player with a track: one left with no title never hides one that has one.
+  Dragging only previews; the seek is sent on release (the wheel: debounced).
   Space / Left / Right. Ways in: the idle bars, the "now playing" alert, the launcher, IPC.
-  Fullscreen (2026-11-16, first step): double-click an empty spot (media.fullscreen.*): the island
-  itself grows to the screen (IslandMode.fullscreen; Island.expansion morphs its corners into the
-  screen's and drops the gap past island.maxHeight; shell.qml grows the window meanwhile). MediaMode
-  blends its layout with `fs` (0 panel, 1 screen, from the island's live height): the top row fades, the
-  progress row stretches + grows and the controls grow at the bottom; the cover flies (`hero`, starts
-  square-cropped like MediaCover so the swap doesn't show) to a big picture with its own ratio
-  (fullscreen.art.*) centred above the progress row, and back to the cover's spot on exit; behind,
-  a very blurry copy (decoded tiny, MultiEffect blur, overscan, dimmed; masked to the island's corner)
-  that comes in over the first topRowFade of the growth and goes over the last (the user disliked it
-  fading all the way out on exit; the stretched, pixelated picture was rejected); black without a
-  picture. Own springs: island.fullscreenExpand / fullscreenShrink (Island.fsMotion). The island never
-  exceeds the screen (its overshoot moved the centred island across a pixel as it settled) and `fs` is 1
-  within half a device pixel. At full size its corners are the screen's minus screenCorners.islandOverlap
-  (reaches under them: same-place antialiased edges left a thin line), smoothing turning into
-  screenCorners.smoothing; the backdrop is masked by Island.shapePath. The big picture's corner grows
-  from the cover's `tile` into the `island` role. A soft shadow under it (RectangularShadow, fullscreen.art.shadow.*, softened on request,
-  growing in with `fs` so the small cover has none).
-  Title / artist fly too (flyTitle / flyArtist: drawn at the full size, fullscreen.text.*Scale, scaled
-  down at the start, so they're sharp once there), centred under the picture; they ride the picture's bottom
-  edge (stage.flyY / flyX: a straight path let the title climb onto the shrinking picture on the way back,
-  read as a jump) and only in the last fullscreen.text.riseShare slide up to the right of the cover; the picture + text group
-  is centred above the progress row. Covers (MediaCover, the big picture) have smoothed corners
-  (Config.roundedRectPath, island.cornerSmoothing). Exit: top-right badge,
-  Escape, double-click again. Reset once the panel is off screen (a volume pop-up over it ends it). After
-  exiting, it stays open until the pointer comes back (holdOpen). A new track's picture replaces the old
-  one once loaded (SwapImage); with other proportions it springs to its new shape (fullscreen.art.resize,
-  only in fullscreen), the text riding along.
+  Fullscreen (a double-click grew the island to the screen, the cover flying to a big picture over a
+  blurred backdrop) was removed on 2026-11-19 with everything it needed (IslandMode.fullscreen,
+  Island.expansion, the fullscreen springs, SwapImage): the user found it not worth its complexity.
+  Don't bring it back.
+  Covers (MediaCover) have smoothed corners (Config.roundedRectPath, island.cornerSmoothing).
   Idle bars (2026-11-15): on the left right after the clock (idle.media.left; with four icons on the right
   the island looked lopsided: left = what's going on, right = the machine's status). Headphones have no idle
   icon any more (2026-11-15: the alert says it; a badge on the bars was tried and was too small to read,
@@ -723,6 +703,15 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
 - Closing must react on the first frame (Apple-style): fast-start curves (OutCubic, springs from rest) for
   anything leaving, never an ease-in, and `shrinkDelay` stays 0 by default. A hold or an ease-in at the start
   reads as lag.
+- Closing (2026-11-19): a scripted closing bounce was built and tuned at length (a quick dip under the
+  idle width, a spring out past it, the idle content fading in and scaling with it; island.exit.*), then
+  removed: compared side by side, the plain spring won (Apple's island settles more than it bounces,
+  closing happens on every pop-up so a flourish gets old, and it was ~250 ms slower). What stayed: the
+  idle island fades in once the closing content is fully gone (idle.transition.handoff 0; it was 0.1:
+  ~175 ms, now ~290-315 ms, island almost at rest; idle.transition.fadeInStart 0.2 wasn't the gate).
+  island.shrink stays at 0.85 (QML's SpringAnimation doesn't overshoot there): a landing overshoot was
+  tried at 0.7 (3 px under in width and height) and the user found the scale-down too noticeable;
+  0.75 was ~1 px, 0.65 dipped the height 7.5 px.
 - Island: grow and shrink use different springs per axis; the `shrinkDelay` hold applies only within 150 ms
   of a mode switch, not to a mode resizing itself. A mode whose size follows its content (search) grows at once
   and shrinks after a short debounce (`search.shrinkDebounce`) so the island doesn't pump while typing.
@@ -827,8 +816,8 @@ work that augments the grade (checks, tests, CLAUDE.md, notify as usual).
 
 ## QML gotchas (each one caused a real bug here)
 - `visible` reads the *effective* visibility: every child of a hidden item reads false. Never lay out from a
-  child's `visible` when the parent can be hidden (MediaMode's title block, hidden during the fullscreen
-  flight, centred the title as if there were no artist: the flying text aimed 10 px low, then jumped).
+  child's `visible` when the parent can be hidden (MediaMode's title block, once hidden, centred the
+  title as if there were no artist).
   Use the condition itself (`artist.text !== ""`).
 - Never size a mode from a positioner (`column.implicitHeight`, `childrenRect`): a Column skips hidden
   children, and a mode is hidden until it fades in, so the island sprang to a smaller size, then changed

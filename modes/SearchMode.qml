@@ -311,16 +311,23 @@ IslandMode {
     readonly property real pinTileWidth: contentWidth / layout.pins.columns
     readonly property int pinRows: Math.ceil(pinned.length / layout.pins.columns)
     readonly property real pinsHeight: pinRows * layout.pins.tileHeight + Math.max(0, pinRows - 1) * layout.pins.rowGap
+    // each row is centred: a short last row (fewer pins than columns) sits in the middle
+    function rowCount(row) {
+        return Math.max(0, Math.min(layout.pins.columns, pinned.length - row * layout.pins.columns));
+    }
+    function rowLeft(row) {
+        return (layout.pins.columns - rowCount(row)) * pinTileWidth / 2;
+    }
     function slotX(i) {
-        return (i % layout.pins.columns) * pinTileWidth;
+        return rowLeft(Math.floor(i / layout.pins.columns)) + (i % layout.pins.columns) * pinTileWidth;
     }
     function slotY(i) {
         return Math.floor(i / layout.pins.columns) * (layout.pins.tileHeight + layout.pins.rowGap);
     }
     // the slot under a point of the grid (dragging)
     function slotAt(x, y) {
-        const col = Math.max(0, Math.min(layout.pins.columns - 1, Math.floor(x / pinTileWidth)));
         const row = Math.max(0, Math.min(pinRows - 1, Math.floor(y / (layout.pins.tileHeight + layout.pins.rowGap))));
+        const col = Math.max(0, Math.min(rowCount(row) - 1, Math.floor((x - rowLeft(row)) / pinTileWidth)));
         return Math.min(pinned.length - 1, row * layout.pins.columns + col);
     }
     // the tiles' model: one entry per pin, by key, moved in place when the order changes (so a tile keeps its
@@ -352,6 +359,19 @@ IslandMode {
     }
     function pinMove(dir) {
         pinSelected = Math.max(0, Math.min(pinned.length - 1, pinSelected + dir));
+    }
+    // Up / Down: the tile right above / below (rows are centred, so not always the same column), staying
+    // put at the first / last row
+    function pinMoveRow(dir) {
+        const row = Math.floor(pinSelected / layout.pins.columns) + dir;
+        if (row < 0 || row >= pinRows)
+            return;
+        pinSelected = slotAt(slotX(pinSelected) + pinTileWidth / 2, slotY(row * layout.pins.columns));
+    }
+    // the tile under a point of the grid, or -1 beside a short row (hovering the empty space selects nothing)
+    function tileAt(x, y) {
+        const i = slotAt(x, y);
+        return x >= slotX(i) && x < slotX(i) + pinTileWidth ? i : -1;
     }
     // pin / unpin: the selected tile, or the selected result (files and calculations can't be pinned)
     function togglePinSelected() {
@@ -670,8 +690,8 @@ IslandMode {
                 }
             }
 
-            Keys.onUpPressed: mode.showPins ? mode.pinMove(-mode.layout.pins.columns) : mode.step(-1)
-            Keys.onDownPressed: mode.showPins ? mode.pinMove(mode.layout.pins.columns) : mode.step(1)
+            Keys.onUpPressed: mode.showPins ? mode.pinMoveRow(-1) : mode.step(-1)
+            Keys.onDownPressed: mode.showPins ? mode.pinMoveRow(1) : mode.step(1)
             Keys.onEscapePressed: mode.close()
             Keys.onReturnPressed: event => mode.showPins ? mode.activateResult(mode.pinned[mode.pinSelected], true, false) : mode.activate(mode.selected, true, !!(event.modifiers & Qt.ShiftModifier))
             Keys.onEnterPressed: event => mode.showPins ? mode.activateResult(mode.pinned[mode.pinSelected], true, false) : mode.activate(mode.selected, true, !!(event.modifiers & Qt.ShiftModifier))
@@ -709,10 +729,8 @@ IslandMode {
             // the selected tile's highlight: springs from tile to tile (the lists' look and spring)
             Rectangle {
                 id: pinHighlight
-                readonly property int col: mode.pinSelected % mode.layout.pins.columns
-                readonly property int row: Math.floor(mode.pinSelected / mode.layout.pins.columns)
-                x: col * mode.pinTileWidth
-                y: row * (mode.layout.pins.tileHeight + mode.layout.pins.rowGap)
+                x: mode.slotX(mode.pinSelected)
+                y: mode.slotY(mode.pinSelected)
                 width: mode.pinTileWidth
                 height: mode.layout.pins.tileHeight
                 radius: Config.corner("row", height)
@@ -756,7 +774,9 @@ IslandMode {
                     const step = mode.layout.pins.tileHeight + mode.layout.pins.rowGap;
                     if (g.y - Math.floor(g.y / step) * step > mode.layout.pins.tileHeight)
                         return;   // in the gap between two rows
-                    mode.pinSelected = mode.slotAt(g.x, g.y);
+                    const i = mode.tileAt(g.x, g.y);
+                    if (i >= 0)
+                        mode.pinSelected = i;
                 }
             }
             Repeater {

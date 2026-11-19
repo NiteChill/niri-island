@@ -28,9 +28,6 @@ Item {
     signal holdKeyboard()
     // close after collapseDelay once the mouse leaves (false: stays until Escape / an action, e.g. search)
     property bool autoClose: true
-    // the island fills the whole screen while this mode is active (its implicit size should then be the
-    // screen's: island.screenWidth / screenHeight); shell.qml grows the window, Island morphs its corners
-    property bool fullscreen: false
     // the island's corners while this mode is active: the corner style's times this (1 = as they are;
     // the screenshot rounds them more); Island eases to it over island.cornerMorph
     property real cornerScale: 1

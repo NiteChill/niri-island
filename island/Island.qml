@@ -12,9 +12,6 @@ import "../services"
 // rectangle instead, cheaper), corners from the corner style (island.shape, see Config.corner), and optionally
 // glued to the top edge of the screen with concave "flares" joining it to the edge (island.attachToTop,
 // NotchNook style). The flares are drawn outside the island's bounds (not clickable, not part of its size).
-// A mode can fill the whole screen (IslandMode.fullscreen, e.g. the media panel's fullscreen): past its usual
-// tallest size (island.maxHeight) the island's corners and the gap above it morph into the screen's own
-// (`expansion`), and shell.qml grows the window to the screen.
 Item {
     id: island
 
@@ -24,22 +21,9 @@ Item {
     readonly property real restHeight: Config.restHeight
     // space above the island inside the bar (0 when attached to the top edge)
     readonly property real topGap: attached ? 0 : Config.bar.gaps
-    // the screen's size (set by shell.qml), for modes that fill it
+    // the screen's size (set by shell.qml), for modes that follow its proportions
     property real screenWidth: 0
     property real screenHeight: 0
-    // the active mode fills the screen
-    readonly property bool fullscreen: !!activeMode && activeMode.fullscreen
-    // 0 = within the usual window (island.maxHeight), 1 = the whole screen: the corners become the
-    // screen's, the gap above goes. From the live height, so it follows the spring both ways (also while a
-    // fullscreen mode hands over to another one).
-    readonly property real expandFrom: Config.island.maxHeight - topGap
-    readonly property real expansion: screenHeight > expandFrom ? Math.max(0, Math.min(1, (height - expandFrom) / (screenHeight - expandFrom))) : 0
-    // what the island's corners become at full size: the screen's (painted by ScreenCorners, smoothed
-    // the same way), a little tighter (screenCorners.islandOverlap) so the island reaches under them: two
-    // antialiased edges in the same place left a thin line of the desktop between them
-    readonly property real screenCorner: Config.screenCorners.enabled ? Math.max(0, Config.screenCorners.radius - Config.screenCorners.islandOverlap) : 0
-    // corner smoothing now: the island's, turning into the screen corners' as it fills the screen
-    readonly property real smoothing: Config.island.cornerSmoothing + (Config.screenCorners.smoothing - Config.island.cornerSmoothing) * expansion
     readonly property real restWidth: Config.island.minWidth
     readonly property real minWidth: Config.island.minWidth
     readonly property var transition: Config.island.transition   // read by IslandMode as `tr`
@@ -75,10 +59,8 @@ Item {
     property real _w: 0
     property real _h: 0
     property bool _ready: false
-    // never bigger than the screen: filling it, the spring's last overshoot (a fraction of a pixel) moved
-    // the centred island across a pixel boundary, a visible jolt as it settled
-    width: screenWidth > 0 ? Math.min(_w, screenWidth) : _w
-    height: screenHeight > 0 ? Math.min(_h, screenHeight) : _h
+    width: _w
+    height: _h
     Component.onCompleted: {
         // modes sit in the host directly or one level down (modes/AllModes.qml)
         let list = [];
@@ -106,7 +88,7 @@ Item {
     // ---- shape ----
     readonly property bool attached: Config.island.attachToTop
     // concave corners joining the island to the screen edge (attached only), never taller than half the island
-    readonly property real flare: attached ? Config.corner("flare", height) * (1 - expansion) : 0
+    readonly property real flare: attached ? Config.corner("flare", height) : 0
     // the active mode may round the island's corners more or less than the style (IslandMode.cornerScale:
     // the screenshot's 1.5); the island eases between the two over island.cornerMorph, so it never snaps
     property real cornerScale: activeMode ? activeMode.cornerScale : 1
@@ -116,10 +98,9 @@ Item {
             easing.type: Easing.OutCubic
         }
     }
-    readonly property real styleCorner: Math.min(Config.corner("island", height) * cornerScale, height / 2)
-    // corner radii now (the corner style's, at most half the height; the screen's at full size)
-    readonly property real corner: expansion > 0 ? styleCorner * (1 - expansion) + screenCorner * expansion : styleCorner
-    readonly property real attachedCorner: expansion > 0 ? Config.corner("attached", height) * (1 - expansion) + screenCorner * expansion : Config.corner("attached", height)
+    // corner radii now (the corner style's, at most half the height)
+    readonly property real corner: Math.min(Config.corner("island", height) * cornerScale, height / 2)
+    readonly property real attachedCorner: Config.corner("attached", height)
     // no smoothing and not attached: a plain rounded rectangle, cheaper to draw than the path (it isn't
     // rebuilt on every frame of a spring)
     readonly property bool plain: Config.island.cornerSmoothing <= 0 && !attached
@@ -141,7 +122,7 @@ Item {
     readonly property real drawnHeight: snap(y + height) - snap(y)
 
     readonly property string shapePath: {
-        const w = drawnWidth, h = drawnHeight, s = smoothing;
+        const w = drawnWidth, h = drawnHeight, s = Config.island.cornerSmoothing;
         if (w <= 0 || h <= 0 || plain)
             return "";
         const n = v => v.toFixed(2);
@@ -200,13 +181,6 @@ Item {
     // (e.g. search results changing). Set before _w/_h so the Behaviors read it.
     property bool holdW: false
     property bool holdH: false
-    // filling the screen or coming back from it: the island.fullscreenExpand / fullscreenShrink springs
-    // (it travels much further than for a panel). Decided per target change like the direction, from the
-    // mode's own flag (not the `fullscreen` binding: it may not have updated yet) or the size it's at.
-    property bool fsMotion: false
-    function screenMove() {
-        return !!activeMode && activeMode.fullscreen || expansion > 0;
-    }
     property Item _lastMode: null
     property double _switchTime: 0
     // true right after a mode switch (targets can change more than once during one switch)
@@ -221,7 +195,6 @@ Item {
         if (!_ready)
             return;
         holdW = switching();
-        fsMotion = screenMove();
         shrinkingW = targetWidth < width;   // vs the current size: targets can change twice in a row
         _w = targetWidth;
     }
@@ -229,12 +202,11 @@ Item {
         if (!_ready)
             return;
         holdH = switching();
-        fsMotion = screenMove();
         shrinkingH = targetHeight < height;
         _h = targetHeight;
     }
-    readonly property var motionW: Config.spring(fsMotion ? (shrinkingW ? Config.island.fullscreenShrink : Config.island.fullscreenExpand) : shrinkingW ? Config.island.shrink : Config.island.expand)
-    readonly property var motionH: Config.spring(fsMotion ? (shrinkingH ? Config.island.fullscreenShrink : Config.island.fullscreenExpand) : shrinkingH ? Config.island.shrink : Config.island.expand)
+    readonly property var motionW: Config.spring(shrinkingW ? Config.island.shrink : Config.island.expand)
+    readonly property var motionH: Config.spring(shrinkingH ? Config.island.shrink : Config.island.expand)
 
     Behavior on _w {
         enabled: island._ready

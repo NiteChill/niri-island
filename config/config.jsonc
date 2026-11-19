@@ -76,18 +76,10 @@
             // "fadeOut": 260,
         },
         // "leaveDelay": 1200,
-        // "fullscreenExpand": {
-        //     "response": 0.6,
-        //     "dampingFraction": 0.88
-        // },
         // "keyHoldTimeout": 1000,
         // "switchWindow": 150,
         // "clickTakesKeyboard": true,
         // "pillInset": 4,
-        // "fullscreenShrink": {
-        //     "response": 0.5,
-        //     "dampingFraction": 0.9
-        // },
         // "expand": {
         //     "response": 0.5,
         //     "dampingFraction": 0.8
@@ -439,7 +431,8 @@
         // "revealScale": 0.6,
         // "transition": {
         //     "fadeInStart": 0.2,
-        //     "fadeOut": 180
+        //     "fadeOut": 180,
+        //     "handoff": 0
         // },
     },
     "search": {
@@ -732,7 +725,6 @@
         "radius": 32,
         // "color": "#000000",
         // "smoothing": 0.6,
-        // "islandOverlap": 2,
     },
     "screenshot": {
         "enabled": true,
@@ -911,63 +903,15 @@
             // "cornerInset": 8,
             // "count": 4,
         },
-        "fullscreen": {
-            // "topRowFade": 0.3,
-            "text": {
-                // "lineGap": 4,
-                // "titleScale": 1.75,
-                // "gapBelow": 40,
-                // "gapAbove": 24,
-                // "artistScale": 1.4,
-                // "riseShare": 0.3,
-            },
-            "art": {
-                "shadow": {
-                    // "blur": 90,
-                    // "spread": 0,
-                    // "offset": 14,
-                    // "opacity": 0.45,
-                },
-                // "resize": {
-                //     "response": 0.5,
-                //     "dampingFraction": 0.9
-                // },
-                // "heightShare": 0.5,
-                // "position": "center",
-            },
-            // "progressScale": 1.4,
-            // "scrimOpacity": 0.7,
-            "exit": {
-                // "size": 40,
-                // "icon": "close-fullscreen.svg",
-                // "margin": 20,
-                // "iconSize": 20,
-            },
-            "backdrop": {
-                // "dim": 0.65,
-                // "sampleSize": 64,
-                // "blur": 64,
-                // "overscan": 1.3,
-            },
-            // "sideMargin": 160,
-            // "imageFade": 300,
-            // "scrimHeight": 360,
-            // "gap": 28,
-            // "background": "#000000",
-            // "enabled": true,
-            // "bottomMargin": 56,
-            // "controlsScale": 1.6,
-        },
         "progress": {
             // "stepPixels": 0.5,
             // "gap": 10,
             // "gapAbove": 18,
             // "timeSize": 12,
             // "scrollStep": 5,
-            // "popFrom": 0.92,
             // "minInterval": 33,
-            // "fadeDuration": 260,
             // "seekDelay": 120,
+            // "unknownTime": "--:--",
         },
         "launcher": {
             // "keywords": "media music song play pause next previous track player spotify",

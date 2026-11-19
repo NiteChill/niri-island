@@ -1300,7 +1300,9 @@ Singleton {
         const playing = ps.find(p => p.isPlaying);
         if (playing)
             return playing;
-        return ps.find(p => p.dbusName === _mediaLast) || ps.find(p => (p.trackTitle || "") !== "") || null;
+        // one with a track first: a player left with no track (a closed tab's) never hides the one that has one
+        const titled = p => (p.trackTitle || "") !== "";
+        return ps.find(p => p.dbusName === _mediaLast && titled(p)) || ps.find(titled) || ps.find(p => p.dbusName === _mediaLast) || null;
     }
     // remember which one played last, so pausing it keeps it shown (not another paused one)
     Connections {

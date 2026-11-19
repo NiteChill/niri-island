@@ -573,8 +573,43 @@ Singleton {
     }
 
     // open a web address in the default browser (the launcher's web search)
+    // Opens a link in the browser, then brings the browser forward (search.web.focusBrowser): a running
+    // browser opens it in a tab of a window that may sit on another workspace or behind, so it looked like
+    // nothing had happened. The default browser (search.web.browserCommand: its desktop file) is matched
+    // against niri's windows like a notification's app (_senderWindow); not running = its new window
+    // takes the focus by itself.
     function openUrl(url) {
         run(Config.search.web.command.map(a => a.replace("{url}", url)));
+        if (Config.search.web.focusBrowser)
+            _focusBrowser();
+    }
+    function _focusBrowser() {
+        const which = windowsProc.createObject(root, {
+            "command": Config.search.web.browserCommand,
+            "done": out => {
+                const id = String(out || "").trim();
+                if (id === "")
+                    return;
+                const names = [id];
+                const entry = root._entryFor(names);
+                const list = windowsProc.createObject(root, {
+                    "command": Config.notifications.open.windowsCommand,
+                    "done": json => {
+                        let windows = [];
+                        try {
+                            windows = JSON.parse(json);
+                        } catch (e) {
+                            return;
+                        }
+                        const w = root._senderWindow(windows, [], names, entry);
+                        if (w)
+                            root.run(Config.notifications.open.focusCommand.map(a => a.replace("{id}", String(w.id))));
+                    }
+                });
+                list.running = true;
+            }
+        });
+        which.running = true;
     }
     // show in the file manager, selected
     function revealFile(path) {

@@ -167,21 +167,14 @@ def uncommented(text):
 
 
 def rewrite(full, active, entries, compound):
-    """config.jsonc text: the structure (order) of `full`, active keys from `active` as plain lines, every
-    other setting commented out with its default, missing settings added at the end of their section."""
-    order = {}
-
-    def walk(obj, prefix):
-        for k, v in obj.items():
-            path = f"{prefix}.{k}" if prefix else k
-            order.setdefault(path, len(order))
-            if path not in compound and path not in entries and isinstance(v, dict):
-                walk(v, path)
-
-    walk(full, "")
+    """config.jsonc text: every setting in the schema's order, active keys from `active` as plain lines,
+    every other one commented out with its default. Always the schema's order, whatever the file's was:
+    the Settings app saves only the active values and lets this lay the file out again, and ordering the
+    missing keys by a set shuffled them differently on every run (2026-11-19: a 1600-line diff for no
+    change)."""
     tree = {}
     inside = {k for k in entries if any(k.startswith(c + ".") for c in compound)}
-    for key in sorted(entries.keys() - inside, key=lambda k: order.get(k, len(order))):
+    for key in [k for k in entries if k not in inside]:
         o = tree
         for part in key.split(".")[:-1]:
             o = o.setdefault(part, {})

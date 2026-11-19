@@ -276,15 +276,6 @@ Singleton {
 
     // ---- internals ----
 
-    function parse(text, fallback) {
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            console.warn("Config: invalid JSON, using fallback:", e);
-            return fallback;
-        }
-    }
-
     // JSON with comments (// line, /* block */) and trailing commas -> plain JSON. String contents are
     // copied untouched; a comma is written only once the next real character isn't a closing bracket.
     function jsonc(text) {
@@ -355,9 +346,22 @@ Singleton {
     }
 
     // invalid config.jsonc: keep the previous values, or (at startup, when there are none) the schema
-    // defaults, so a typo never takes the whole shell down
+    // defaults, so a typo never takes the whole shell down. An unreadable schema.json (caught mid-write,
+    // or empty for a moment) keeps the previous values too: building from no defaults left every
+    // setting undefined and the whole island broken until the next good read (2026-11-19, 400+
+    // warnings in a burst).
     function build(userText, schemaText) {
-        const base = defaults(parse(schemaText, { "sections": [] }));
+        let schema;
+        try {
+            schema = JSON.parse(schemaText);
+        } catch (e) {
+            if (root.data) {
+                console.warn("Config: schema.json is not valid JSON, keeping the previous values:", e);
+                return root.data;
+            }
+            schema = { "sections": [] };
+        }
+        const base = defaults(schema);
         let u;
         try {
             u = JSON.parse(jsonc(userText));

@@ -44,7 +44,8 @@ config/
                        island.cornerSmoothing, island.blur, island.blurOpacity, island.attachToTop,
                        <alert>.enabled. Object { } lines always stay active, so uncommenting one line works.
                        Prose comments only in the /* */ header (the checker uncomments every `//` line).
-                       Regenerate with `python3 tools/check-config.py --rewrite` (keeps active lines).
+                       Regenerate with `python3 tools/check-config.py --rewrite` (keeps active lines; always lays the file
+                       out in the schema's order, so it's the same text whoever wrote it, the Settings app included).
                        Named .jsonc (a .json with comments: "Comments are not permitted in JSON" in Zed);
                        its first key "$schema": "./config.schema.json" tells Zed/VS Code that comments and
                        trailing commas are allowed (tested with Zed's own JSON server: clean)
@@ -152,7 +153,10 @@ small animations), Pop-ups (`activity.*`, the shared look), Panels (`panel.*`: w
 Bluetooth panels share: width, padding, symbol motion, list pill), then one section per mode. JSON paths stay grouped
 by the code that uses them. Editing the JSON files with a script: build the whole text first, then write it at once (temp file + rename;
 the live shell reloads on save and logs "config.jsonc is not valid JSON" if it catches a half-written file;
-harmless, it keeps the previous values). config.jsonc isn't plain JSON: parse it with the checker's `jsonc()`.
+harmless, it keeps the previous values; the same for schema.json since 2026-11-19: before, an unreadable
+schema rebuilt Config from no defaults and the island ran broken, every value undefined, until a QML
+reload). The live shell's log.log can stop updating after a flood of warnings: read the whole log with
+`qs log <by-id dir>/log.qslog`. config.jsonc isn't plain JSON: parse it with the checker's `jsonc()`.
 
 ### Adding a new mode (panel)
 1. `modes/FooMode.qml`: root `IslandMode { ... }`, set `implicitWidth`/`implicitHeight` (from `Config.foo.*`),
@@ -411,6 +415,10 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   search.settings.pageIcons is off (then search.settings.icon).
   Web (2026-11-15): the last result is always a web search for what's typed (search.web.*, Google by
   default, Sys.openUrl through xdg-open), or opening it when it looks like an address ("rust-lang.org");
+  then the browser comes forward (2026-11-19, search.web.focusBrowser: a running browser opened the tab
+  behind or on another workspace, "it seems to have done nothing"): the default browser's desktop file
+  (search.web.browserCommand) matched against niri's windows like a notification's sender (_senderWindow),
+  its most recently focused window gets niri's focus-window;
   alone, it's what Enter picks. Not pinnable, not in file search.
 - Wi-Fi (2026-11-13, the battery panel's language): the network's name on top, centred (rolls when it
   changes); the Wi-Fi icon as the instrument: wifi3.svg's dot + two round-capped arcs

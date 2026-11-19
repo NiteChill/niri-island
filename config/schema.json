@@ -6327,6 +6327,25 @@
                 "xdg-open",
                 "{url}"
               ]
+            },
+            {
+              "key": "search.web.focusBrowser",
+              "label": "Bring the browser forward",
+              "description": "After opening a web search or an address, switches to the browser's window, even if it's on another workspace. Without it, a browser that's already open loads the page in the background and it looks like nothing happened. Uses the same window commands as clicking a notification.",
+              "type": "boolean",
+              "default": true
+            },
+            {
+              "key": "search.web.browserCommand",
+              "label": "Default browser command",
+              "description": "Prints the default browser's desktop file name (e.g. firefox.desktop), so the island knows which window to bring forward.",
+              "type": "command",
+              "advanced": true,
+              "default": [
+                "xdg-settings",
+                "get",
+                "default-web-browser"
+              ]
             }
           ]
         },

@@ -54,7 +54,7 @@ services/              singletons (registered in services/qmldir)
   Config.qml           schema defaults + config.jsonc; Config.<section>.<key>. Also the corner helpers
                        (Config.corner / inner / restCorner / restHeight, see Island shape)
                        Each section is a `readonly property var foo: data.foo` line: a new section needs one
-  Sys.qml              ALL system data and actions: battery + power profile + time left, audio output +
+  Sys.qml              ALL system data and actions: fullscreen (niri event stream, for calm mode), battery + power profile + time left, audio output +
                        volume + mic, brightness, Wi-Fi (state, nearby networks, connect), Bluetooth (state,
                        devices, discovery, connect / pair), media (MPRIS: Sys.media; the position as an
                        anchor + rate, mediaPositionNow(); mediaLevels from cava while bars are shown;
@@ -84,6 +84,7 @@ modes/                 one file per island mode (what's shown inside the island;
                Sys for the change, ignoring what is already there at startup, system.startupQuiet)
                ScreenshotMode (niri's "Screenshot captured": the picture itself; click opens it)
                GoodbyeMode (power off / restart: writes "bye bye" by hand, then lets the system go down)
+  calm:        CalmMode (the empty pill shell.qml shows instead of idle while Activity.calm; see Calm mode)
 widgets/               reusable pieces used by modes
   StyledText  Icon (every assets/icons SVG: `name` + `color`, drawn as a vector Shape)
   Badge (concentric round/capsule badge, soft or solid; optional `label`: glyph + word capsule)  TitleStack (grey caption over white title)
@@ -760,6 +761,27 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   room exactly where it goes, then fades in. Spacing between icons is the slots' `gap` = `island.spacing`
   (0: the pills only show on hover, a gap would be dead space).
 - Each file starts with a short comment saying what it is. Keep it accurate when you change the file.
+
+### Calm mode (2026-11-20)
+- The island at rest as a small empty pill (calm.width 80, the resting height minus calm.shorterBy 8: a bit lower than the idle island, which
+  keeps its own height), like
+  the idle Dynamic Island. On while calm.always, while a window is fullscreen (calm.fullscreen), or toggled
+  by `qs ipc call island calm` (Activity._calmOverride: holds until the fullscreen state changes).
+  shell.qml shows "calm" instead of "idle" while Activity.calm && !calmRevealed. Hover reveals the idle
+  island after calm.revealDelay (a click on the pill at once), leaving hides it calm.hideDelay later.
+- What pops up while calm: panels always (a hidden panel would still take the keyboard), the goodbye,
+  and the classes in calm.shows (default: the keys you press and every alert, critical notifications
+  included; 2026-11-20, the user: "let alerts go through"); the rest (notifications, messages) wait in the queue with their time, like anything covered (Activity._pick).
+  A held one plays its sound when it shows, not on arrival (item.soundLater: no ding with nothing on
+  screen); a backlog after calm = one sound (sounds.minGap).
+- Fullscreen: niri's JSON has no fullscreen flag. Sys keeps windows / workspaces from
+  `niri msg --json event-stream` (running only while calm.fullscreen) and the outputs' logical sizes
+  (`niri msg --json outputs`, re-read on WorkspacesChanged): Sys.fullscreen = the active window of the
+  active workspace on Quickshell.screens[0] is at least the output's logical size, overview closed. A
+  window maximized to the edges counts too.
+- The pill is smaller than island.minWidth: IslandMode.belowMinimum lets a mode's implicit size go under
+  the island's minimum (Island's targets read the mode's fullWidth / fullHeight).
+- Not done yet: the sixth quick settings switch (the row of five is already tight at panel.width 350).
 
 ### System settings (2026-11-16)
 - The planned desktop settings app writes the system's settings (gsettings, logind...), never the island's

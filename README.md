@@ -107,8 +107,9 @@ place.
 
    (Put the binds inside your existing `binds { }` block.) Any panel opens with
    `qs ipc call island toggle <name>`: `search`, `quickSettings`, `wifi`, `bluetooth`, `battery`, `time`,
-   `media`, `wallpaper`, `screenshots`. niri-settings' Keyboard > Shortcuts page can set all of these
-   for you.
+   `media`, `wallpaper`, `screenshots`. `qs ipc call island calm` toggles calm mode (the island as a
+   small empty pill; on by itself while a window is fullscreen). niri-settings' Keyboard > Shortcuts
+   page can set all of these for you.
 
 3. Log out and back in, or start it now with `qs &`.
 

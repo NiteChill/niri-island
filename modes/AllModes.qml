@@ -40,6 +40,10 @@ Item {
     ScreenshotsMode {
         name: "screenshots"
     }
+    // calm mode's empty pill (shell.qml shows it instead of idle while Activity.calm)
+    CalmMode {
+        name: "calm"
+    }
     // activities (Activity puts them up)
     VolumeMode {
         name: "volume"

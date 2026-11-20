@@ -342,6 +342,27 @@
         //     "handoff": 0
         // },
     },
+    "calm": {
+        // "enabled": true,
+        // "always": false,
+        // "fullscreen": true,
+        // "shows": [
+        //     "volume",
+        //     "brightness",
+        //     "microphone",
+        //     "headphones",
+        //     "charging",
+        //     "screenshot",
+        //     "nowPlaying",
+        //     "lowBattery",
+        //     "criticalNotification",
+        //     "wifiConnected"
+        // ],
+        // "revealDelay": 150,
+        // "hideDelay": 400,
+        // "width": 80,
+        // "shorterBy": 8,
+    },
     "battery": {
         "gauge": {
             "ticks": {

@@ -31,6 +31,8 @@ Item {
     // the island's corners while this mode is active: the corner style's times this (1 = as they are;
     // the screenshot rounds them more); Island eases to it over island.cornerMorph
     property real cornerScale: 1
+    // the island may be smaller than island.minWidth / the resting height for this mode (calm's pill)
+    property bool belowMinimum: false
 
     // ---- keyboard ----
     // item that gets keyboard focus while this mode is open (null = the mode doesn't use the keyboard).
@@ -73,8 +75,8 @@ Item {
     readonly property var tr: Object.assign({}, island ? island.transition : Config.island.transition, trOverride || {})
 
     // the size the island takes when this mode is active (mirrors IslandShape.targetWidth/Height)
-    readonly property real fullWidth: Math.max(island ? island.minWidth : 0, implicitWidth)
-    readonly property real fullHeight: Math.max(island ? island.restHeight : 0, implicitHeight)
+    readonly property real fullWidth: belowMinimum ? implicitWidth : Math.max(island ? island.minWidth : 0, implicitWidth)
+    readonly property real fullHeight: belowMinimum ? implicitHeight : Math.max(island ? island.restHeight : 0, implicitHeight)
 
     // how close the island is to this mode's size: 1 = exactly there, ->0 = far off (either way).
     // Only needed while active (canAppear): an inactive mode returns before reading the island's size, so

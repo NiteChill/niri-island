@@ -86,6 +86,62 @@ Singleton {
             show("goodbye", "goodbye", "goodbye", null, 0);
     }
 
+    // ---- calm (calm.*): the island rests as a small empty pill ----
+    // On while calm.always, while a window is fullscreen (calm.fullscreen, Sys.fullscreen), or when
+    // toggled by hand (qs ipc call island calm: the toggle overrides the automatic state until the
+    // fullscreen state changes). Hovering the pill shows the idle island (calmRevealed, after
+    // calm.revealDelay); leaving hides it again calm.hideDelay later. Panels the user opens always show;
+    // of the rest, only the classes in calm.shows do (the others wait, keeping their time, like anything
+    // covered, and play their sound only once they show).
+    property string _calmOverride: ""   // "", "on" or "off"
+    readonly property bool calmAuto: Config.calm.enabled && (Config.calm.always || (Config.calm.fullscreen && Sys.fullscreen))
+    readonly property bool calm: _calmOverride === "on" || (_calmOverride === "" && calmAuto)
+    property bool calmRevealed: false
+    function toggleCalm() {
+        _calmOverride = calm ? "off" : "on";
+    }
+    function revealCalm() {
+        calmHide.stop();
+        calmRevealed = calm;
+    }
+    Connections {
+        target: Sys
+        function onFullscreenChanged() {
+            root._calmOverride = "";
+        }
+    }
+    onCalmChanged: {
+        calmReveal.stop();
+        calmHide.stop();
+        calmRevealed = false;
+        _pick();
+    }
+    Timer {
+        id: calmReveal
+        interval: Config.calm.revealDelay
+        onTriggered: root.calmRevealed = root.calm
+    }
+    Timer {
+        id: calmHide
+        interval: Config.calm.hideDelay
+        onTriggered: root.calmRevealed = false
+    }
+    function _calmHover() {
+        if (hovered) {
+            calmHide.stop();
+            if (calm && !calmRevealed)
+                calmReveal.restart();
+        } else {
+            calmReveal.stop();
+            if (calmRevealed)
+                calmHide.restart();
+        }
+    }
+    // shown while calm: the user's panels, the goodbye, and the classes in calm.shows
+    function _calmShows(cls) {
+        return !calm || cls === "panel" || cls === "goodbye" || Config.calm.shows.indexOf(cls) >= 0;
+    }
+
     // ---- queue ----
     property var _items: []
     property int _seq: 0
@@ -97,7 +153,9 @@ Singleton {
             return;
         const items = _items.filter(i => i.key !== key);
         const old = _items.find(i => i.key === key);
-        if (!old)
+        // a new one plays its sound when it arrives; held back by calm mode, when it shows (_pick)
+        const held = !_calmShows(cls);
+        if (!old && !held)
             _sound(kind);
         items.push({
             "key": key,
@@ -107,7 +165,8 @@ Singleton {
             "timeout": timeout,
             "remaining": timeout,
             "seq": old && old.cls === cls ? old.seq : ++_seq,
-            "since": old ? old.since : Date.now()
+            "since": old ? old.since : Date.now(),
+            "soundLater": held && (!old || old.soundLater)
         });
         _items = items;
         _pick();
@@ -147,6 +206,8 @@ Singleton {
         _pause();
         let best = null;
         for (const i of _items) {
+            if (!_calmShows(i.cls))
+                continue;
             if (!best)
                 best = i;
             else {
@@ -157,6 +218,10 @@ Singleton {
             }
         }
         current = best;
+        if (best && best.soundLater) {
+            best.soundLater = false;
+            _sound(best.kind);   // a burst after calm mode = one sound (sounds.minGap)
+        }
         _resume();
     }
 
@@ -176,6 +241,7 @@ Singleton {
         timer.restart();
     }
     onHoveredChanged: {
+        _calmHover();
         if (hovered)
             _pause();
         else if (current) {

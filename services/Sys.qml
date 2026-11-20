@@ -193,6 +193,137 @@ Singleton {
         }
     }
 
+    // ---- fullscreen (calm.fullscreen): a window fills the island's screen ----
+    // niri's JSON has no fullscreen flag: fullscreen = the active window of the active workspace on the
+    // island's screen (Quickshell.screens[0], like shell.qml) is as big as that screen (a window maximized
+    // to the edges counts too), and the overview is closed. Kept from niri's event stream (windows, their
+    // sizes, workspaces) as plain maps: no polling. The stream runs only while calm mode watches for it.
+    property bool fullscreen: false
+    property var _niriWindows: ({})
+    property var _niriWorkspaces: ({})
+    property var _niriOutputs: ({})
+    property bool _niriOverview: false
+    property bool _niriDown: false
+    readonly property bool _fullscreenWatch: Config.calm.enabled && Config.calm.fullscreen
+    on_FullscreenWatchChanged: {
+        if (!_fullscreenWatch)
+            fullscreen = false;
+    }
+    Process {
+        id: niriEvents
+        command: ["niri", "msg", "--json", "event-stream"]
+        running: root._fullscreenWatch && !root._niriDown
+        stdout: SplitParser {
+            onRead: line => root._niriEvent(line)
+        }
+        onExited: {
+            root._niriDown = true;
+            niriEventsRestart.start();
+        }
+    }
+    Timer {
+        id: niriEventsRestart
+        interval: Config.system.restartDelay
+        onTriggered: root._niriDown = false
+    }
+    // the outputs' logical sizes, read again whenever the workspaces change (outputs come and go with them)
+    Process {
+        id: niriOutputs
+        command: ["niri", "msg", "--json", "outputs"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root._niriOutputs = JSON.parse(text) || {};
+                } catch (e) {
+                    root._niriOutputs = {};
+                }
+                root._fullscreenCheck();
+            }
+        }
+        onExited: {
+            if (root._outputsAgain) {
+                root._outputsAgain = false;
+                Qt.callLater(() => niriOutputs.running = true);
+            }
+        }
+    }
+    // a change while a read runs reads again once it's done (the running one may predate the change)
+    property bool _outputsAgain: false
+    function _readOutputs() {
+        if (niriOutputs.running)
+            _outputsAgain = true;
+        else
+            niriOutputs.running = true;
+    }
+    // the island's screen can change (a monitor plugged in or out)
+    Connections {
+        target: Quickshell
+        function onScreensChanged() {
+            root._fullscreenCheck();
+        }
+    }
+    function _byId(list) {
+        const map = {};
+        for (const x of list || [])
+            map[x.id] = x;
+        return map;
+    }
+    function _niriEvent(line) {
+        let ev;
+        try {
+            ev = JSON.parse(line);
+        } catch (e) {
+            return;
+        }
+        const wins = _niriWindows, spaces = _niriWorkspaces;
+        if (ev.WorkspacesChanged) {
+            _niriWorkspaces = _byId(ev.WorkspacesChanged.workspaces);
+            _readOutputs();   // checks once read
+            return;
+        } else if (ev.WorkspaceActivated) {
+            const on = spaces[ev.WorkspaceActivated.id];
+            if (!on)
+                return;
+            for (const id in spaces)
+                if (spaces[id].output === on.output)
+                    spaces[id].is_active = spaces[id] === on;
+        } else if (ev.WorkspaceActiveWindowChanged) {
+            const e = ev.WorkspaceActiveWindowChanged, ws = spaces[e.workspace_id];
+            if (ws)
+                ws.active_window_id = e.active_window_id;
+        } else if (ev.WindowsChanged)
+            _niriWindows = _byId(ev.WindowsChanged.windows);
+        else if (ev.WindowOpenedOrChanged)
+            wins[ev.WindowOpenedOrChanged.window.id] = ev.WindowOpenedOrChanged.window;
+        else if (ev.WindowClosed)
+            delete wins[ev.WindowClosed.id];
+        else if (ev.WindowLayoutsChanged) {
+            for (const change of ev.WindowLayoutsChanged.changes)
+                if (wins[change[0]])
+                    wins[change[0]].layout = change[1];
+        } else if (ev.OverviewOpenedOrClosed)
+            _niriOverview = ev.OverviewOpenedOrClosed.is_open;
+        else
+            return;
+        _fullscreenCheck();
+    }
+    function _fullscreenCheck() {
+        const screen = Quickshell.screens.length > 0 ? Quickshell.screens[0].name : "";
+        const out = _niriOutputs[screen];
+        let full = false;
+        if (_fullscreenWatch && out && out.logical && !_niriOverview) {
+            for (const id in _niriWorkspaces) {
+                const ws = _niriWorkspaces[id];
+                if (ws.output !== screen || !ws.is_active)
+                    continue;
+                const win = _niriWindows[ws.active_window_id];
+                const size = win && win.layout ? win.layout.window_size : null;
+                full = !!size && size[0] >= Math.floor(out.logical.width) && size[1] >= Math.floor(out.logical.height);
+            }
+        }
+        fullscreen = full;
+    }
+
     // the current week, for the time panel: 7 days from Config.time.weekStart (0 = Sunday, 1 = Monday...)
     // [{ date: Date, day: int (day of month), weekday: int 0-6, today: bool }]. Only recomputed when the
     // date changes (it depends on _today, not on `time`, which ticks every second while the panel is open).

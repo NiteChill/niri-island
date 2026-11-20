@@ -41,6 +41,7 @@ Singleton {
     readonly property var activity: data.activity
     readonly property var panel: data.panel
     readonly property var idle: data.idle
+    readonly property var calm: data.calm
     readonly property var battery: data.battery
     readonly property var wifi: data.wifi
     readonly property var bluetooth: data.bluetooth

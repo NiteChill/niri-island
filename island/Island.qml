@@ -51,8 +51,8 @@ Item {
     }
 
     // Targets: pure bindings, never animated
-    readonly property real targetWidth: activeMode ? Math.max(minWidth, activeMode.implicitWidth) : restWidth
-    readonly property real targetHeight: activeMode ? Math.max(restHeight, activeMode.implicitHeight) : restHeight
+    readonly property real targetWidth: activeMode ? activeMode.fullWidth : restWidth
+    readonly property real targetHeight: activeMode ? activeMode.fullHeight : restHeight
 
     // The only animated values. They follow _w/_h, which are only updated *after* the direction
     // flags below, so each Behavior starts with the right spring and delay.

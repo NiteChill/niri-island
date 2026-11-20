@@ -2590,6 +2590,111 @@
       ]
     },
     {
+      "id": "calm",
+      "title": "Calm mode",
+      "icon": "bedtime",
+      "description": "The island at rest as a small empty pill, like the idle Dynamic Island. Hover it to see the clock and the status icons.",
+      "groups": [
+        {
+          "id": "behavior",
+          "title": "Behavior",
+          "description": "",
+          "settings": [
+            {
+              "key": "calm.enabled",
+              "label": "Calm mode",
+              "description": "Allow calm mode at all. Off: the island always shows the clock and the status icons, even over fullscreen apps.",
+              "type": "boolean",
+              "default": true
+            },
+            {
+              "key": "calm.always",
+              "label": "Always calm",
+              "description": "Keep the island as a small empty pill all the time. Hover it to see the clock and the status icons.",
+              "type": "boolean",
+              "default": false
+            },
+            {
+              "key": "calm.fullscreen",
+              "label": "Calm in fullscreen",
+              "description": "Turn calm mode on by itself while a window fills the screen (a video, a game), and off again when it leaves fullscreen.",
+              "type": "boolean",
+              "default": true
+            },
+            {
+              "key": "calm.shows",
+              "label": "Still shown when calm",
+              "description": "What still pops up in calm mode. Panels you open always show; anything not listed waits until calm mode ends (it keeps its time). Names as in the island's priority order: volume, brightness, microphone, headphones, charging, screenshot, nowPlaying, lowBattery, criticalNotification, wifiConnected, message, notification, lowNotification.",
+              "type": "stringList",
+              "default": [
+                "volume",
+                "brightness",
+                "microphone",
+                "headphones",
+                "charging",
+                "screenshot",
+                "nowPlaying",
+                "lowBattery",
+                "criticalNotification",
+                "wifiConnected"
+              ]
+            },
+            {
+              "key": "calm.revealDelay",
+              "label": "Hover delay",
+              "description": "How long the pointer rests on the pill before the clock and the icons show. A little delay keeps a pointer passing by from opening it.",
+              "type": "integer",
+              "min": 0,
+              "max": 2000,
+              "step": 10,
+              "unit": "ms",
+              "default": 150
+            },
+            {
+              "key": "calm.hideDelay",
+              "label": "Hide delay",
+              "description": "How long after the pointer leaves the island it shrinks back to the pill.",
+              "type": "integer",
+              "min": 0,
+              "max": 5000,
+              "step": 50,
+              "unit": "ms",
+              "default": 400
+            }
+          ]
+        },
+        {
+          "id": "look",
+          "title": "Look",
+          "description": "",
+          "settings": [
+            {
+              "key": "calm.width",
+              "label": "Width",
+              "description": "Width of the calm pill.",
+              "type": "integer",
+              "min": 20,
+              "max": 300,
+              "step": 1,
+              "unit": "px",
+              "default": 80
+            },
+            {
+              "key": "calm.shorterBy",
+              "label": "Shorter by",
+              "description": "How much shorter the calm pill is than the resting island. 0 = the same height.",
+              "type": "integer",
+              "min": 0,
+              "max": 30,
+              "step": 1,
+              "unit": "px",
+              "default": 8
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "battery",
       "title": "Battery panel",
       "icon": "battery",

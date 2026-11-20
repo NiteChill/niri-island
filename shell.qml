@@ -18,8 +18,9 @@ ShellRoot {
     id: root
 
     // ---- state ----
-    // the mode on screen: Activity's pick, idle when nothing wants the island
-    readonly property string islandState: Activity.current ? Activity.current.kind : "idle"
+    // the mode on screen: Activity's pick; when nothing wants the island, idle (calm mode: the empty pill,
+    // idle while hovered)
+    readonly property string islandState: Activity.current ? Activity.current.kind : Activity.calm && !Activity.calmRevealed ? "calm" : "idle"
     // the open panel was opened from the keyboard (launcher Enter, IPC shortcut): it gets the keyboard
     // right away, and doesn't auto-close until the mouse has visited the island once (pinned)
     property bool keyboardOpened: false
@@ -49,6 +50,10 @@ ShellRoot {
         // the power off / restart goodbye, without powering off
         function goodbye(): void {
             Activity.previewGoodbye();
+        }
+        // calm mode on / off (until the fullscreen state changes), for a keyboard shortcut
+        function calm(): void {
+            Activity.toggleCalm();
         }
         // Focus (do not disturb) on / off, for a keyboard shortcut
         function focus(): void {

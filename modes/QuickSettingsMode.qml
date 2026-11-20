@@ -17,7 +17,7 @@ import "../widgets"
 //    their panel
 //  - brightness and volume as the pop-ups' rows (widgets/LevelRow), the icon at the left (the speaker mutes), the value in grey at the right. Brightness only with a
 //    backlight.
-// Fully usable from the keyboard (see "keyboard" below). Calm mode will be a sixth switch once it exists. Settings: quickSettings.* (its own padding: more air than
+// Fully usable from the keyboard (see "keyboard" below). Calm mode (qs ipc call island calm) may become a sixth switch. Settings: quickSettings.* (its own padding: more air than
 // the other panels around a row of small things), panel.* (width).
 IslandMode {
     id: mode

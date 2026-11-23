@@ -13,12 +13,18 @@ Rectangle {
     property real rowY: 0
     property bool shown: false
 
-    // the place of the last lit row (only follows rowY while shown)
+    // the place of the last lit row (only follows rowY while shown). A row going unlit changes `shown` and
+    // `rowY` (the lists pass row 0's place for "none") at once, in an order Qt picks: rowY first, and the
+    // highlight took row 0's place while still shown, sliding up as it faded. So a new place is taken
+    // only once that change is over (Qt.callLater), if it's still shown then.
     property real at: 0
-    onRowYChanged: if (shown)
-        at = rowY
+    onRowYChanged: Qt.callLater(follow)
     onShownChanged: if (shown)
         at = rowY
+    function follow() {
+        if (shown)
+            at = rowY;
+    }
 
     width: parent ? parent.width : 0
     radius: Config.corner("row", height)

@@ -426,6 +426,11 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   shown now (reset on open, on entries / inSub changes, on trayId changes, which also reset the
   selection like an opening). Any list whose rows can change while the pointer rests on it needs the
   same; check every menu when the rule changes, not only the one being fixed.
+  RowHighlight (battery, bar and tray menus) still slid up as it faded (the user, 2026-11-24): a row
+  going unlit changes `shown` and `rowY` (row 0's place, the lists' "none") in one go, and when Qt
+  applied rowY first the highlight took it while still shown. It now takes a new place only after the
+  change is over (Qt.callLater), if still shown: measured, it fades at its row (y 60 throughout).
+  PanelList and MenuBadge keep their place by themselves (no fallback row).
 - Switching dropdowns along the bar waits while the pointer heads into the open card (Bar.aimTo, the
   "menu aim" triangle: from where the pointer came from to the card's top corners widened by bar.aim.slack;
   inside it, wait bar.aim.delay and switch only if the pointer stopped on the other item). Measured in a

@@ -23,14 +23,27 @@ IslandMode {
 
     // the submenus opened, deepest last (a new app's menu starts at the top)
     property var stack: []
-    onTrayIdChanged: stack = []
+    // another tray icon's menu while open (hovering along the bar): a fresh start like opening, keeping only
+    // whether the keys are in charge
+    onTrayIdChanged: {
+        stack = [];
+        selected = 0;
+        pointerFresh = false;
+    }
     onActiveChanged: {
         if (active) {
             stack = [];
             selected = 0;
+            pointerFresh = false;
             keyShown = !!island && island.keyboardOpened;
         }
     }
+    // The pointer lights a row only once it has moved over the rows shown now: a submenu opening, Back, the
+    // app updating its menu or another app's menu all change the rows under a still pointer, and the
+    // highlight lit whatever row the old index fell on (the lists' rule: a still pointer selects nothing)
+    property bool pointerFresh: false
+    onEntriesChanged: pointerFresh = false
+    onInSubChanged: pointerFresh = false
     QsMenuOpener {
         id: top
         menu: Sys.trayMenu(mode.trayId)
@@ -109,7 +122,7 @@ IslandMode {
     // one selection for the pointer and the keys: the pointer sets it only when it moves, so with the
     // pointer resting on a row the keys take over (and the next move of the pointer takes it back)
     function move(dir) {
-        if (keyShown || rows.pointerIn) {
+        if (keyShown || (rows.pointerIn && pointerFresh)) {
             let i = selected;
             do
                 i += dir;
@@ -180,11 +193,12 @@ IslandMode {
             height: mode.rowsHeight
 
             readonly property bool pointerIn: hover.hovered
-            readonly property int lit: hover.hovered || mode.keyShown ? mode.selected : -1
+            readonly property int lit: (hover.hovered && mode.pointerFresh) || mode.keyShown ? mode.selected : -1
             MovedHover {
                 id: hover
                 cursorShape: mode.usable(mode.rowAt(point.position.y)) ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onMoved: position => {
+                    mode.pointerFresh = true;
                     const i = mode.rowAt(position.y);
                     if (i >= 0) {
                         mode.keyShown = false;

@@ -419,6 +419,13 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   resting on a row the arrow keys take over, and its next move takes the highlight back (the user,
   2026-11-23). A key with the pointer inside moves at once; with it outside, the first key only shows the
   highlight (on the first usable row if it sat on a greyed one).
+  The tray menu missed this rule until 2026-11-24 (the user: "the tray icon menu doesn't have the
+  hover/focus fix"): its rows change under a still pointer (a submenu, Back, the app updating its
+  menu, hovering to another app's icon while it's open) and the highlight lit whatever row the old index
+  fell on. Now TrayMenuMode.pointerFresh: the pointer lights a row only after it has moved over the rows
+  shown now (reset on open, on entries / inSub changes, on trayId changes, which also reset the
+  selection like an opening). Any list whose rows can change while the pointer rests on it needs the
+  same; check every menu when the rule changes, not only the one being fixed.
 - Switching dropdowns along the bar waits while the pointer heads into the open card (Bar.aimTo, the
   "menu aim" triangle: from where the pointer came from to the card's top corners widened by bar.aim.slack;
   inside it, wait bar.aim.delay and switch only if the pointer stopped on the other item). Measured in a

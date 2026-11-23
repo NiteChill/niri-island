@@ -736,7 +736,18 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   in [swipe.minLeave, leaveDuration], m = speed * duration / distance (unthrown m = 3 = OutCubic); a
   fixed OutCubic took a 360 px/s throw to 3600 px/s at once, now 360 -> 386 -> rising; a 1250 px/s
   flick leaves at 1250. An open card stays open while swiped (_keepOpen): sliding out from under a still
-  pointer collapsed it mid-swipe. The card: app icon at the left (a soft glyph
+  pointer collapsed it mid-swipe.
+  The stack routes two-finger swipes (2026-11-24, found with a log of the user's real swipes: cards froze
+  mid-swipe, half transparent, and a hard swipe slid off screen but was never deleted): two fingers
+  don't move the pointer, so a card sliding away left it behind, and the rest of the swipe, its end
+  (ScrollEnd, no movement) included, went to whatever was under it; a Horizontal WheelHandler never gets
+  the end either. Now NotificationStack's two WheelHandlers pick the card under the pointer when a swipe
+  starts (cardAt) and send it every event (NotificationCard.scrollEvent) until it's done; the card has
+  none of its own. A swipe whose end never comes is judged after swipe.lostEnd ms (no throw). Made-up
+  events never showed this: test input paths with the user's real events (a log) when it's input.
+  Hover opens a card only on real pointer moves (Inbox.pointerMoves, bumped by the stack's MovedHover):
+  cards gliding up under a still pointer after a dismissal opened and closed as they passed ("they
+  jitter a bit when going up"); the glide itself measured smooth per frame. The card: app icon at the left (a soft glyph
   tile without one; urgent = a red tile and a red title, not a red card), bold title with a relative age
   at the right ("now", "5m ago", notifications.age.*), grey message, picture at the right, hairline edge
   (notifications.edge*) + shadow. The center's header: two chips in the cards' color ("Notifications",

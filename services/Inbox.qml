@@ -35,6 +35,9 @@ Singleton {
     property int _count: 0
     property int _unseen: 0
     // the mouse is over the cards: their time is paused (set by the stack)
+    // bumped by NotificationStack on each real pointer move over the cards (and when the pointer leaves
+    // them): a card opens / closes on hover only then (NotificationCard._hoverOpen)
+    property int pointerMoves: 0
     property bool hovered: false
     // goes up whenever a row changes (the cards read their row by uid: this makes them read it again)
     property int revision: 0

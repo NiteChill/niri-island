@@ -62,7 +62,17 @@ Item {
         Inbox.revision;
         return expanded ? Inbox.actions(uid) : [];
     }
-    readonly property bool expanded: layout.expandOnHover && (hover.hovered || _keepOpen)
+    readonly property bool expanded: layout.expandOnHover && (_hoverOpen || _keepOpen)
+    // open under the pointer, but changed only when the pointer really moves (Inbox.pointerMoves): cards
+    // gliding up under a still pointer (one above dismissed) opened and closed one after the other as
+    // they passed, changing height mid-move: a jitter
+    property bool _hoverOpen: false
+    Connections {
+        target: Inbox
+        function onPointerMovesChanged() {
+            card._hoverOpen = hover.hovered;
+        }
+    }
 
     // ---- size: from the parts (not a positioner, see CLAUDE.md) ----
     readonly property real pileHeight: Config.screenshot.pile.height
@@ -123,7 +133,7 @@ Item {
     // out from under a still pointer, it collapsed mid-swipe (the layout jumped)
     property bool _keepOpen: false
     on_MovingChanged: if (_moving)
-        _keepOpen = hover.hovered
+        _keepOpen = _hoverOpen
     Behavior on pull {
         enabled: !drag.active && !exit.running && !scroller.following
         SpringAnimation {
@@ -322,6 +332,9 @@ Item {
             }
             if (event.phase === Qt.ScrollMomentum)
                 return;
+            // in the history, a swipe up or down is the list's
+            if (!following && card.inCenter && Math.abs(p.y) > Math.abs(p.x))
+                return;
             if (!following) {
                 card._last = null;
                 card._speed = Qt.point(0, 0);
@@ -336,8 +349,15 @@ Item {
             // throw). Only scrolling with no phases (some smooth mouse wheels) ends by a quiet moment.
             if (event.phase === Qt.ScrollEnd)
                 finish(true);
-            else if (event.phase === Qt.NoScrollPhase)
+            else if (event.phase === Qt.NoScrollPhase) {
+                scrollEnd.interval = card.layout.swipe.scrollEnd;
                 scrollEnd.restart();
+            } else {
+                // a safety net: a swipe whose end never comes is judged after swipe.lostEnd ms of quiet (as
+                // a release after resting: no throw)
+                scrollEnd.interval = card.layout.swipe.lostEnd;
+                scrollEnd.restart();
+            }
         }
         function finish(ended) {
             scrollEnd.stop();
@@ -355,21 +375,16 @@ Item {
     }
     Timer {
         id: scrollEnd
-        interval: card.layout.swipe.scrollEnd
-        onTriggered: scroller.finish(false)
+        onTriggered: scroller.finish(interval === card.layout.swipe.lostEnd)
     }
-    // a touchpad counts too: WheelHandler takes only mice by default, and the swipes never arrived
-    WheelHandler {
-        orientation: Qt.Horizontal
-        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        onWheel: event => scroller.take(event)
+    // Scroll events come from NotificationStack, not from handlers on the card: two fingers don't move the
+    // pointer, so a card sliding away left it behind and the rest of the swipe (its end included) went to
+    // whatever was under it: cards froze mid-swipe, or slid off screen without ever being deleted. The
+    // stack stays under the pointer, picks the card at the start and sends it the whole swipe.
+    function scrollEvent(event) {
+        scroller.take(event);
     }
-    WheelHandler {
-        orientation: Qt.Vertical
-        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        enabled: !card.inCenter
-        onWheel: event => scroller.take(event)
-    }
+    readonly property bool swiping: scroller.following
 
     // ---- the card ----
     readonly property real corner: Config.corner("menu", height)
@@ -640,7 +655,7 @@ Item {
         Rectangle {
             id: close
             visible: opacity > 0
-            opacity: hover.hovered ? 1 : 0
+            opacity: card._hoverOpen ? 1 : 0
             Behavior on opacity {
                 NumberAnimation {
                     duration: Config.motion.hoverFade

@@ -9276,6 +9276,18 @@
               "unit": "ms",
               "default": 120,
               "advanced": true
+            },
+            {
+              "key": "notifications.swipe.lostEnd",
+              "label": "Lost swipe end",
+              "description": "If a touchpad swipe's end never arrives, the card decides after this long without movement (no throw: it goes only if it's past the swipe distance).",
+              "type": "integer",
+              "min": 100,
+              "max": 3000,
+              "step": 50,
+              "unit": "ms",
+              "default": 500,
+              "advanced": true
             }
           ]
         },

@@ -78,6 +78,54 @@ Item {
     }
     HoverHandler {
         id: stackHover
+        onHoveredChanged: Inbox.pointerMoves++
+    }
+    MovedHover {
+        onMoved: Inbox.pointerMoves++
+    }
+    // Swiping a card with two fingers (NotificationCard.scrollEvent): the stack takes the scroll events and
+    // sends the whole swipe to the card under the pointer when it began, wherever that card has slid to
+    // since (the pointer doesn't move: a card's own handlers lost it, and its end, once it slid away).
+    // In the history, scrolling up and down that isn't a card's swipe goes on to the list. A touchpad
+    // counts: WheelHandler takes only mice by default. Two handlers (each takes one direction; the
+    // end-of-swipe event has no movement and only reaches the vertical one).
+    property var swiped: null
+    property bool _routing: false
+    function cardAt(pos) {
+        const view = Activity.center ? list : banners;
+        const p = view.mapFromItem(stack, pos.x, pos.y);
+        const item = view.itemAt(p.x + view.contentX, p.y + view.contentY);
+        return !item ? null : item.card !== undefined ? item.card : item;
+    }
+    function route(handler, event) {
+        // (one event offered to both handlers, a diagonal one: used once; the flag lasts until this delivery
+        // is over. Not the event object: Qt reuses it from one event to the next)
+        if (_routing)
+            return;
+        _routing = true;
+        Qt.callLater(() => stack._routing = false);
+        if (!swiped || !swiped.swiping)
+            swiped = cardAt(handler.point.position);
+        if (!swiped || !swiped.scrollEvent) {
+            swiped = null;
+            event.accepted = false;
+            return;
+        }
+        swiped.scrollEvent(event);
+        if (!swiped.swiping)
+            swiped = null;
+    }
+    WheelHandler {
+        id: wheelX
+        orientation: Qt.Horizontal
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: event => stack.route(wheelX, event)
+    }
+    WheelHandler {
+        id: wheelY
+        orientation: Qt.Vertical
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: event => stack.route(wheelY, event)
     }
 
 

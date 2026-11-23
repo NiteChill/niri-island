@@ -1080,8 +1080,11 @@ Singleton {
         })
     // signal bars of the current connection. Its own int, so `wifi` (a new object, which always notifies)
     // is rebuilt only when the bar count changes, not each time NetworkManager updates the strength
+    // (the active network can be half gone while NetworkManager swaps it: its strength read as nothing and
+    // the int got undefined, a warning; anything not a number counts as no signal)
     readonly property int _wifiBars: {
-        const q = _wifiActive ? _wifiActive.signalStrength * 100 : 0;
+        const s = _wifiActive ? Number(_wifiActive.signalStrength) : 0;
+        const q = isNaN(s) ? 0 : s * 100;
         return q > 66 ? 3 : q > 33 ? 2 : q > 0 ? 1 : 0;
     }
 

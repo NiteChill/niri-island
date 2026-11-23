@@ -1,7 +1,8 @@
 # Quickshell config: macOS-style bar + Dynamic Island notch
 
 QML shell for Quickshell 0.3 on niri (Wayland, Fedora). Entry point: `shell.qml`.
-Since 2026-11-23 (`menu-bar` branch; the previous island-only design is the `v0.1-island` tag) the shell
+Since 2026-11-23 (built on the `menu-bar` branch, merged into main on 2026-11-24; the previous island-only
+design is the `v0.1-island` tag, pushed so the README's pointer works) the shell
 is a top bar like macOS's with a notch in the middle like the iPhone's Dynamic Island:
 - the **bar**: the focused app and the workspaces at the left; the tray, Bluetooth, Wi-Fi, battery, quick
   settings and the clock at the right, white over a black-to-transparent gradient. Each icon opens its
@@ -965,7 +966,9 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   (a joined "byebye" read as one word). The first version (upright, fat stroke, 2.2 s) felt slow and heavy. Tested only in a scratch copy (`Sys._shutdownAnnounced(true)`, lock
   command swapped for `cat`); never trigger a real shutdown to test.
 
-## Release (2026-11-17; the bar + notch redesign isn't released yet)
+## Release (2026-11-17)
+The bar + notch redesign is on main since 2026-11-24, but no release was made for it yet: v0.1.0 is
+still the island-only version.
 Published as https://github.com/NiteChill/niri-island (public, GPL-3.0-or-later, release v0.1.0), with
 the Settings app as https://github.com/NiteChill/niri-settings. README.md is for users: what it does,
 how it works with niri-settings, what it needs (Fedora / Arch packages), install (clone into

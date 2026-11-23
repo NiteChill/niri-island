@@ -20,7 +20,8 @@ import "../widgets"
 // arrows move between them, Enter opens, Ctrl+Left / Right moves the tile (it slides with the highlight),
 // dragging a tile reorders them (the others slide aside). Ctrl+P (search.pins.key) or a right-click pins /
 // unpins the selected result or tile; pinned results show a pin.
-// Opened from the keyboard: `qs ipc call island toggle search`. Grows with the number of results.
+// It lives in the notch (2026-11-23): Mod+Space (`qs ipc call island toggle search`) or the logo's menu
+// grows the notch into it, dark like the notch; it grows downward with the number of results.
 // Look (Raycast-style launcher): a magnifier in front of the field, a hairline under it, results grouped
 // under small grey section titles (Calculator, Island, Commands, Applications; groups ordered by their
 // best match), icons in rounded tiles, the result's kind in grey at the right, and on the selected row
@@ -197,7 +198,7 @@ IslandMode {
         const apps = Sys.apps;
         const scored = [];
         // island panels first on equal score (+0.5)
-        const modes = island ? island.modeList : [];
+        const modes = island ? island.modeList.concat(island.extraModes) : [];
         for (let i = 0; i < modes.length; i++) {
             const l = modes[i].launcher;
             if (!l || modes[i] === mode)
@@ -284,7 +285,7 @@ IslandMode {
     }
     readonly property var pinned: {
         const out = [];
-        const modes = island ? island.modeList : [];
+        const modes = island ? island.modeList.concat(island.extraModes) : [];
         const actions = layout.actions || [];
         for (const p of Sys.pins) {
             if (p.kind === "panel") {
@@ -588,7 +589,7 @@ IslandMode {
             width: mode.layout.searchIconSize
             height: mode.layout.searchIconSize
             name: mode.layout.searchIcon
-            color: Config.colors.secondary
+            color: palette.placeholderText
         }
         Item {
             id: pill
@@ -618,7 +619,7 @@ IslandMode {
             Rectangle {
                 anchors.fill: parent
                 radius: Config.corner("pill", height)
-                color: Config.colors.text
+                color: palette.windowText
                 opacity: Config.search.pill.opacity
             }
             Row {
@@ -630,7 +631,7 @@ IslandMode {
                     width: Config.search.pill.iconSize
                     height: Config.search.pill.iconSize
                     name: Config.search[mode.pillKind].pillIcon
-                    color: Config.colors.text
+                    color: palette.windowText
                 }
                 StyledText {
                     anchors.verticalCenter: parent.verticalCenter
@@ -648,13 +649,11 @@ IslandMode {
             anchors.top: parent.top
             height: mode.layout.inputHeight
             verticalAlignment: TextInput.AlignVCenter
-            color: Config.font.color
-            selectionColor: Qt.rgba(1, 1, 1, mode.layout.textSelectionOpacity)
+            color: palette.windowText
+            selectionColor: Qt.alpha(palette.windowText, mode.layout.textSelectionOpacity)
+            selectedTextColor: palette.windowText
             font.family: Config.font.family
-            font.variableAxes: ({
-                    "ROND": Config.font.roundness,
-                    "wght": Config.font.weight
-                })
+            font.variableAxes: Config.axes(mode.layout.inputSize, Config.font.weight)
             font.weight: Config.font.weight
             font.pixelSize: mode.layout.inputSize
             clip: true
@@ -700,7 +699,7 @@ IslandMode {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: input.text.length === 0
                 text: mode.scope !== "" ? Config.search[mode.scope].placeholder : mode.layout.placeholder
-                color: Config.colors.secondary
+                color: palette.placeholderText
                 font.pixelSize: mode.layout.inputSize
             }
         }
@@ -712,7 +711,7 @@ IslandMode {
             anchors.top: input.bottom
             anchors.topMargin: mode.layout.gap
             height: mode.layout.dividerWidth
-            color: Config.colors.text
+            color: palette.windowText
             opacity: mode.results.length > 0 || mode.showPins ? mode.layout.dividerOpacity : 0
         }
 
@@ -734,7 +733,7 @@ IslandMode {
                 width: mode.pinTileWidth
                 height: mode.layout.pins.tileHeight
                 radius: Config.corner("row", height)
-                color: Config.colors.text
+                color: palette.windowText
                 opacity: Config.panel.list.selectedOpacity
                 visible: mode.pinned.length > 0
                 Behavior on x {
@@ -832,7 +831,7 @@ IslandMode {
                         y: mode.layout.pins.padding
                         width: mode.layout.pins.iconSize
                         height: mode.layout.pins.iconSize
-                        readonly property color tint: tile.modelData.panel ? Config.colors.accent : Config.colors.text
+                        readonly property color tint: tile.modelData.panel ? Config.colors.accent : palette.windowText
                         Rectangle {
                             anchors.fill: parent
                             visible: !tile.modelData.app
@@ -865,7 +864,7 @@ IslandMode {
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
                         font.pixelSize: mode.layout.pins.nameSize
-                        color: tile.confirming ? Config.colors.danger : tile.current ? Config.colors.text : Config.colors.secondary
+                        color: tile.confirming ? Config.colors.danger : tile.current ? palette.windowText : palette.placeholderText
                         text: tile.confirming ? mode.layout.confirmText : tile.modelData.name || ""
                     }
 
@@ -920,9 +919,6 @@ IslandMode {
         // ---- results ----
         ListView {
             id: view
-            // blurred island: faded through a mask instead of a band in the island color (ScrollFade)
-            layer.enabled: edgeFade.masked
-            layer.effect: edgeFade.effect
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: input.bottom
@@ -954,7 +950,7 @@ IslandMode {
                     height: mode.layout.headerHeight
                     verticalAlignment: Text.AlignVCenter
                     font.pixelSize: Config.activity.captionSize
-                    color: Config.colors.secondary
+                    color: palette.placeholderText
                     text: mode.layout.sections[sectionItem.section] || ""
                 }
             }
@@ -968,7 +964,7 @@ IslandMode {
                 width: view.width
                 height: mode.layout.rowHeight
                 radius: Config.corner("row", height)
-                color: Config.colors.text
+                color: palette.windowText
                 // the same look and spring as every list highlight (panel.list.selectedOpacity / highlight)
                 opacity: mode.results.length > 0 ? Config.panel.list.selectedOpacity : 0
                 y: mode.placed.rows.length > 0 ? mode.placed.rows[Math.min(mode.selected, mode.placed.rows.length - 1)] : 0
@@ -1032,7 +1028,7 @@ IslandMode {
                     width: mode.layout.iconSize
                     height: mode.layout.iconSize
                     anchors.verticalCenter: parent.verticalCenter
-                    readonly property color tint: row.modelData.panel || row.modelData.calc || row.modelData.url ? Config.colors.accent : Config.colors.text
+                    readonly property color tint: row.modelData.panel || row.modelData.calc || row.modelData.url ? Config.colors.accent : palette.windowText
 
                     Rectangle {
                         anchors.fill: parent
@@ -1100,7 +1096,7 @@ IslandMode {
                     text: row.modelData.subtitle || ""
                     // a file's or folder's path keeps both ends (~/…/project); an app's description is a sentence
                     elide: row.modelData.kind === "file" || row.modelData.kind === "folder" ? Text.ElideMiddle : Text.ElideRight
-                    color: Config.colors.secondary
+                    color: palette.placeholderText
                     font.pixelSize: mode.layout.subtitleSize
                 }
 
@@ -1126,7 +1122,7 @@ IslandMode {
                         width: mode.layout.pins.markSize
                         height: width
                         name: mode.layout.pins.markIcon
-                        color: Config.colors.secondary
+                        color: palette.placeholderText
                     }
 
                     Rectangle {
@@ -1137,7 +1133,7 @@ IslandMode {
                         width: Math.max(height, keyText.implicitWidth + 2 * mode.layout.keycapPadding)
                         height: mode.layout.keycapHeight
                         radius: Config.corner("small", height)
-                        color: Qt.alpha(Config.colors.text, mode.layout.keycapOpacity)
+                        color: Qt.alpha(palette.windowText, mode.layout.keycapOpacity)
                         StyledText {
                             id: keyText
                             anchors.centerIn: parent
@@ -1154,7 +1150,7 @@ IslandMode {
                         width: Math.min(implicitWidth, view.width * mode.layout.subtitleMaxWidth - trailing.keyRoom)
                         elide: Text.ElideRight
                         font.pixelSize: mode.layout.subtitleSize
-                        color: row.confirming ? Config.colors.danger : Config.colors.secondary
+                        color: row.confirming ? Config.colors.danger : palette.placeholderText
                         // (|| "": a row past the end of new, shorter results is briefly without a result)
                         text: (row.confirming ? mode.layout.confirmText : row.current ? mode.layout.verbs[row.modelData.kind] : mode.layout.kinds[row.modelData.kind]) || ""
                     }

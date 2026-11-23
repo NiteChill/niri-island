@@ -14,7 +14,7 @@ Rectangle {
 
     // API
     property string icon: ""
-    property color tint: Config.colors.text
+    property color tint: palette.windowText
     property bool solid: false
     property color glyphColor: Config.onColor(tint)
     property real glyphSize: Config.activity.glyphSize

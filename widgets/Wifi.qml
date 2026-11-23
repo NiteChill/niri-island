@@ -2,20 +2,20 @@ import QtQuick
 
 import "../services"
 
-// Wi-Fi icon: dim full icon (all three bars, idle.overlayOpacity) with the actual number of bars on top.
-// Defaults to the current connection (idle island); the Wi-Fi panel sets `level`, `size` and `tint` for
+// Wi-Fi icon: dim full icon (all three bars, bar.overlayOpacity) with the actual number of bars on top.
+// Defaults to the current connection (the bar); the Wi-Fi dropdown sets `level`, `size` and `tint` for
 // each network in its list.
-// Always drawn; in the idle island the IconSlot around it shows/hides it (Sys.wifi.connected).
+// Always drawn.
 Item {
     id: wifi
 
     // config
-    readonly property var icon: Config.idle.wifi
+    readonly property var icon: Config.bar.wifi
 
     // 0 = no signal, 1 to 3 = number of bars
     property int level: Sys.wifi.bars
     property real size: icon.size
-    property color tint: Config.colors.text
+    property color tint: palette.windowText
     readonly property string levelName: level > 0 ? icon.icons[Math.min(level, icon.icons.length) - 1] : ""
 
     // style
@@ -27,7 +27,7 @@ Item {
     Icon {
         name: wifi.icon.icons[wifi.icon.icons.length - 1]
         color: wifi.tint
-        opacity: Config.idle.overlayOpacity
+        opacity: Config.bar.overlayOpacity
 
         width: wifi.size
         height: wifi.size

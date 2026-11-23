@@ -18,7 +18,7 @@ IslandMode {
     implicitWidth: layout.width
     implicitHeight: restHeight
 
-    readonly property color tint: muted ? Config.colors.danger : Config.colors.text
+    readonly property color tint: muted ? Config.colors.danger : palette.windowText
 
     // wiggle on mute: once the pop-up is on screen (appeared: the mute itself comes just before the pop-up
     // is put up), or right away when muting while it's already showing

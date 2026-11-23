@@ -1,48 +1,35 @@
 import QtQuick
 
-// Every island mode, by name (the name is the Activity kind). Put once inside the Island in shell.qml:
-// a new mode is registered here only.
-// Island finds the modes inside it (Island.modeList); this item just fills the island.
+// Every mode of the notch, by name (the name is the Activity kind). Put once inside the notch's Island in
+// shell.qml: a new notch mode is registered here only. (The dropdowns are in AllDropdowns.qml.)
+// Island finds the modes inside it (Island.modeList); this item just fills it.
 Item {
     anchors.fill: parent
+    readonly property bool isModeList: true
 
-    // the modes the user opens (the rest are activities Activity puts up)
-    readonly property var panels: ["idle", "battery", "wifi", "bluetooth", "search", "time", "quickSettings", "media", "wallpaper", "screenshots"]
-
-    // panels (opened by the user)
-    IdleMode {
-        name: "idle"
+    // at rest: the small empty notch
+    RestMode {
+        name: "rest"
     }
-    BatteryMode {
-        name: "battery"
+    // something dragged over the notch: a small drop zone
+    DropMode {
+        name: "drop"
     }
-    WifiMode {
-        name: "wifi"
-    }
-    BluetoothMode {
-        name: "bluetooth"
-    }
-    SearchMode {
-        name: "search"
-    }
-    TimeMode {
-        name: "time"
-    }
-    QuickSettingsMode {
-        name: "quickSettings"
-    }
+    // grown out of the notch (a click on it, IPC): the player and the shelf, a navbar between them
     MediaMode {
         name: "media"
     }
+    ShelfMode {
+        name: "shelf"
+    }
+    // the wallpaper picker (the logo's menu, the launcher): the shelf's carousel, for the desktop's picture
     WallpaperMode {
         name: "wallpaper"
     }
-    ScreenshotsMode {
-        name: "screenshots"
-    }
-    // calm mode's empty pill (shell.qml shows it instead of idle while Activity.calm)
-    CalmMode {
-        name: "calm"
+    // the launcher (Mod+Space, the logo's menu): the notch grows into a search field, the results unfolding
+    // below it
+    SearchMode {
+        name: "search"
     }
     // activities (Activity puts them up)
     VolumeMode {
@@ -56,12 +43,6 @@ Item {
     }
     MessageMode {
         name: "message"
-    }
-    NotificationMode {
-        name: "notification"
-    }
-    ScreenshotMode {
-        name: "screenshot"
     }
     LowBatteryMode {
         name: "lowBattery"

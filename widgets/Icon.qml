@@ -11,7 +11,7 @@ Item {
 
     // icon file name from the config (e.g. "wifi3.svg"); empty = draws nothing
     property string name
-    property color color: Config.colors.text
+    property color color: palette.windowText
     // viewBox units -> pixels, when the user of the icon picks it (e.g. Battery snapping to device pixels);
     // 0 = fit the box
     property real fixedScale: 0

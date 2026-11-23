@@ -8,14 +8,14 @@ import "../services"
 // The body's flat top and bottom are snapped to device pixels (scale nudged so its height is whole
 // pixels, then shifted onto the pixel grid): otherwise, at fractional scales (1.25), the half-covered
 // rows above and below it read as thin dark bars.
-// Idle island and the charging alert (which sets `level` to animate the fill).
+// The bar (white) and the charging alert (which sets `level` to animate the fill).
 Item {
     id: battery
 
     // config
-    readonly property var icon: Config.idle.battery
+    readonly property var icon: Config.bar.battery
 
-    // the battery color by default; the idle island passes Sys.battery.idleColor
+    // the battery color by default; the bar passes white
     property color tint: Sys.battery.color
     readonly property color iconColor: tint
     // 0 - 1; defaults to the real level
@@ -120,7 +120,7 @@ Item {
         height: battery.height
 
         clip: true
-        opacity: Config.idle.overlayOpacity
+        opacity: Config.bar.overlayOpacity
 
         Icon {
             x: -battery.fillEnd

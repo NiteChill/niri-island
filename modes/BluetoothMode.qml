@@ -1,29 +1,18 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Shapes
 
 import "../services"
 import "../island"
 import "../widgets"
 
-// Bluetooth panel, the Wi-Fi panel's sibling in the battery panel's language:
-//  - on top, centred: the connected device's name ("Name and 2 more", "Not connected", "Off"); a new name
-//    rolls in (RollingName)
-//  - the Bluetooth rune, big: the small icon's (assets/icons/bluetooth.svg) stem, chevrons and arms redrawn as
-//    round strokes with its own proportions (glyph.*, in the icon's 24-unit grid, times glyph.scale). Blue
-//    while a device is connected, grey otherwise. Opening (and connecting a device) lights it part by part
-//    (stem, then the two zigzags); while searching or connecting, a ripple runs through it; a failed
-//    attempt shakes it and flashes it red (GlyphMotion, shared with the Wi-Fi panel). The rune is the switch: click it (or press Space) to turn
-//    Bluetooth on / off
-//  - the devices, right under the rune (or behind a pill "Devices · 4" (ExpandPill) that unfolds them,
-//    panel.collapsibleList) (Sys.bluetoothDevices; new ones are searched for only
-//    while this panel is open) in two groups: saved (paired) devices, connected first, then the other
-//    devices nearby ("Searching…" while none has shown up). Each row: an icon for the kind of device, the
-//    name, at the right the battery level when reported, "Connecting…" / "Pairing…", what went wrong in
-//    red, or a blue check when connected. Click (or Up/Down + Enter): a saved device connects; a new one is
-//    paired, trusted and connected; a connected one disconnects (bluetooth.clickDisconnects). Up/Down or
-//    Enter unfold the list from the keyboard
+// Bluetooth dropdown (under the bar's Bluetooth icon), calm like the macOS menu: "Bluetooth" and a switch
+// on top, then the devices (Sys.bluetoothDevices; new ones are searched for only while it's open) in two
+// groups: saved (paired) devices, connected first, then the other devices nearby ("Searching…" while none
+// has shown up). Each row: an icon for the kind of device, the name, at the right the battery level when
+// reported, "Connecting…" / "Pairing…", what went wrong in red, or a blue check when connected. Click (or
+// Up/Down + Enter): a saved device connects; a new one is paired, trusted and connected; a connected one
+// disconnects (bluetooth.clickDisconnects). Space flips the switch.
 // The list is a ListView fed by a ListModel updated in place (only the rows on screen exist).
 // Pairing goes through BlueZ without an agent of our own: devices that pair without a code (headphones,
 // speakers, mice, most controllers) work; one that asks for a PIN or a code to confirm shows the error.
@@ -33,7 +22,6 @@ IslandMode {
     readonly property var layout: Config.bluetooth
     // the rows' look, shared with the other list panel (PanelList)
     readonly property var rowsLook: Config.panel.list
-    readonly property var look: Config.bluetooth.hero
     launcher: Config.bluetooth.launcher
 
     // look for new devices only while the panel is open
@@ -48,15 +36,10 @@ IslandMode {
     property var devices: Sys.bluetoothDevices
     readonly property bool connecting: devices.some(d => d.busy === "connecting" || d.busy === "pairing")
 
-    // ---- the list unfolds from the pill ----
-    // panel.collapsibleList: the list waits behind the pill until it's clicked; otherwise (the default) it
-    // shows right away and there's no pill (Wi-Fi keeps a plain "Searching…" one until something is found)
-    readonly property bool collapsible: Config.panel.collapsibleList
-    property bool expanded: false
-    readonly property bool listShown: btOn && (expanded || !collapsible)
+    readonly property bool listShown: btOn
 
-    // keyboard: Up/Down pick a device, Enter acts on it (both unfold the list first), Space toggles
-    // Bluetooth; Escape closes the panel (IslandMode)
+    // keyboard: Up/Down pick a device, Enter acts on it, Space toggles Bluetooth; Escape closes the
+    // dropdown (IslandMode)
     keyTarget: mode
     // the selection follows the device, not the row: when the list reorders (a device pairs and moves to
     // the saved group), Enter must still mean the same device
@@ -75,7 +58,6 @@ IslandMode {
             const d = devices.find(d => d.address === attempt);
             if (d && d.failed && d.busy === "") {
                 attempt = "";
-                motion.fail();
             } else if (!d || d.connected) {
                 attempt = "";
             }
@@ -84,12 +66,9 @@ IslandMode {
     Keys.onUpPressed: step(-1)
     Keys.onDownPressed: step(1)
     function step(dir) {
-        if (!btOn)
+        if (!listShown)
             return;
-        if (!listShown) {
-            expanded = true;
-            return;
-        }
+        list.keyShown = true;
         selected = Math.max(0, Math.min(devices.length - 1, selected + dir));
         revealRow(selected);
     }
@@ -101,11 +80,7 @@ IslandMode {
     Keys.onReturnPressed: enter()
     Keys.onEnterPressed: enter()
     function enter() {
-        if (!btOn)
-            return;
-        if (!listShown)
-            expanded = true;
-        else
+        if (listShown)
             activate(selected);
     }
 
@@ -115,7 +90,7 @@ IslandMode {
         if (active) {
             devices = Qt.binding(() => Sys.bluetoothDevices);
             list.reset();
-            motion.replay(true);
+            list.keyShown = !!island && island.keyboardOpened;
         } else
             devices = devices;
     }
@@ -123,7 +98,6 @@ IslandMode {
     onOnScreenChanged: {
         if (!onScreen) {
             selected = 0;
-            expanded = false;
         }
     }
     function activate(i) {
@@ -137,56 +111,6 @@ IslandMode {
         }
         attempt = d.address;
         Sys.connectBluetooth(d.address);
-    }
-
-    // ---- the name on top: rolls when it changes ----
-    readonly property string heroName: {
-        if (!Sys.bluetooth.available)
-            return layout.unavailableText;
-        if (!btOn)
-            return look.offText;
-        if (Sys.bluetooth.count > 1)
-            return layout.manyConnectedText.arg(Sys.bluetooth.name).arg(Sys.bluetooth.count - 1);
-        return Sys.bluetooth.connected ? Sys.bluetooth.name : layout.notConnectedText;
-    }
-
-    // ---- the rune ----
-    // three parts: 0 = the stem, 1 = the upper chevron + its arm, 2 = the lower chevron + its arm. All lit
-    // while a device is connected; its motion is GlyphMotion's
-    GlyphMotion {
-        id: motion
-        active: mode.active
-        parts: 3
-        live: mode.btOn && Sys.bluetooth.connected ? 3 : 0
-        rippling: mode.onScreen && mode.btOn && (mode.connecting || mode.devices.filter(d => !d.paired).length === 0)
-        fast: mode.connecting
-        hovered: glyphHover.hovered
-    }
-
-    // ---- rune geometry, in px: the icon's grid (centred on the crossing point) times glyph.scale ----
-    readonly property real gs: look.glyph.scale
-    readonly property real stemHalf: look.glyph.stemHalf * gs
-    readonly property real chevron: look.glyph.chevron * gs
-    readonly property real arm: look.glyph.arm * gs
-    readonly property real stroke: look.glyph.thickness * gs
-    // bounding box around the crossing point (stroke included): left arm to chevron tips, stem ends
-    readonly property real glyphLeft: arm + stroke / 2
-    readonly property real glyphWidth: arm + chevron + stroke
-    readonly property real glyphHeight: 2 * stemHalf + stroke
-    // one part as an SVG polyline: points [[x, y], ...] relative to the crossing point at (cx, cy)
-    function polyline(cx, cy, points) {
-        return points.map((p, i) => (i === 0 ? "M " : "L ") + (cx + p[0]).toFixed(2) + " " + (cy + p[1]).toFixed(2)).join(" ");
-    }
-
-    // one stroke of the rune
-    component Stroke: ShapePath {
-        property string svg
-        fillColor: "transparent"
-        capStyle: ShapePath.RoundCap
-        joinStyle: ShapePath.RoundJoin
-        PathSvg {
-            path: svg
-        }
     }
 
     // ---- rows: a ListModel kept in sync with Sys.bluetoothDevices, changed in place ----
@@ -219,7 +143,7 @@ IslandMode {
     readonly property real footerHeight: otherCount > 0 ? 0 : (savedCount > 0 ? rowsLook.sectionGap : 0) + rowsLook.headerHeight + rowsLook.rowHeight
     // the list's full height: a title per group (+ the gap between groups), the rows, the footer
     readonly property real listHeight: (savedCount > 0 ? rowsLook.headerHeight : 0) + (otherCount > 0 ? rowsLook.headerHeight : 0) + (savedCount > 0 && otherCount > 0 ? rowsLook.sectionGap : 0) + devices.length * rowsLook.rowHeight + footerHeight
-    // what's shown: all of it, up to hero.visibleRows rows (plus a group title), then it scrolls
+    // what's shown: all of it, up to panel.visibleRows rows (plus a group title), then it scrolls
     readonly property real viewHeight: Math.min(listHeight, Config.panel.visibleRows * rowsLook.rowHeight + rowsLook.headerHeight)
 
     // top of row i in the list, computed exactly (ListView only estimates rows it hasn't created yet)
@@ -250,15 +174,9 @@ IslandMode {
         scrollTo(y);
     }
 
-    // ---- panel size ----
-    readonly property real heroHeight: nameBox.height + Config.panel.nameGap + glyphHeight
-    // the pill only when the list is collapsible (the list itself says "Searching…")
-    readonly property bool pillShown: btOn && collapsible
-    readonly property real pillRoom: pillShown ? Config.panel.pill.gap + Config.panel.pill.height : 0
-    readonly property real listRoom: listShown ? (collapsible ? Config.panel.pill.listGap : Config.panel.listGap) + viewHeight : 0
-
+    // ---- size ----
     implicitWidth: Config.panel.width
-    implicitHeight: 2 * Config.panel.padding + heroHeight + pillRoom + listRoom
+    implicitHeight: 2 * Config.panel.padding + Config.panel.header.height + (listShown ? Config.panel.listGap + viewHeight : 0)
 
     // fixed-size content box, pinned to the top so nothing slides while the island grows
     Item {
@@ -268,96 +186,21 @@ IslandMode {
         width: mode.implicitWidth - 2 * Config.panel.padding
         height: mode.implicitHeight - 2 * Config.panel.padding
 
-        // ---- the name ----
-        RollingName {
-            id: nameBox
-            width: parent.width
-            animate: mode.active
-            color: mode.btOn ? Config.colors.text : Config.colors.secondary
-            text: mode.heroName
-        }
-
-        // ---- the rune ----
-        Item {
-            id: glyph
-            anchors.top: nameBox.bottom
-            anchors.topMargin: Config.panel.nameGap
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.horizontalCenterOffset: motion.shake
-            width: mode.glyphWidth
-            height: mode.glyphHeight
-
-            // the crossing point
-            readonly property real cx: mode.glyphLeft
-            readonly property real cy: height / 2
-            readonly property string stemPath: mode.polyline(cx, cy, [[0, -mode.stemHalf], [0, mode.stemHalf]])
-            // from the stem's top to the upper chevron's tip, then down through the crossing to the lower-left arm
-            readonly property string upperPath: mode.polyline(cx, cy, [[0, -mode.stemHalf], [mode.chevron, -mode.stemHalf + mode.chevron], [-mode.arm, mode.arm]])
-            // from the upper-left arm through the crossing to the lower chevron's tip, then to the stem's foot
-            readonly property string lowerPath: mode.polyline(cx, cy, [[-mode.arm, -mode.arm], [mode.chevron, mode.stemHalf - mode.chevron], [0, mode.stemHalf]])
-
-            Shape {
-                anchors.fill: parent
-                preferredRendererType: Shape.CurveRenderer
-
-                // one stroke per part, each an opaque color (grey, blended towards the lit color by `light`):
-                // the parts overlap at the crossing and the stem's ends, and see-through strokes doubled up
-                // there into bright spots
-                Stroke {
-                    svg: glyph.stemPath
-                    strokeWidth: mode.stroke
-                    strokeColor: motion.partColor(0)
-                }
-                Stroke {
-                    svg: glyph.upperPath
-                    strokeWidth: mode.stroke
-                    strokeColor: motion.partColor(1)
-                }
-                Stroke {
-                    svg: glyph.lowerPath
-                    strokeWidth: mode.stroke
-                    strokeColor: motion.partColor(2)
-                }
+        PanelHeader {
+            id: header
+            title: mode.layout.title
+            Switch {
+                checked: mode.btOn
+                onToggled: mode.toggleBluetooth()
             }
-
-            // the rune is the Bluetooth switch
-            scale: glyphTap.pressed ? Config.motion.pressScale : 1
-            Behavior on scale {
-                NumberAnimation {
-                    duration: Config.motion.pressDuration
-                    easing.type: Easing.OutCubic
-                }
-            }
-            HoverHandler {
-                id: glyphHover
-                enabled: Sys.bluetooth.available
-                cursorShape: Qt.PointingHandCursor
-            }
-            TapHandler {
-                id: glyphTap
-                enabled: Sys.bluetooth.available
-                onTapped: mode.toggleBluetooth()
-            }
-        }
-
-        // ---- the pill that unfolds the list ----
-        ExpandPill {
-            id: pill
-            visible: mode.pillShown
-            anchors.top: glyph.bottom
-            anchors.topMargin: Config.panel.pill.gap
-            anchors.horizontalCenter: parent.horizontalCenter
-            expanded: mode.expanded
-            text: mode.devices.length === 0 ? mode.layout.searchingText : mode.look.pillText.arg(mode.devices.length)
-            onClicked: mode.expanded = !mode.expanded
         }
 
         // ---- devices ----
         PanelList {
             id: list
             visible: mode.listShown
-            anchors.top: mode.collapsible ? pill.bottom : glyph.bottom
-            anchors.topMargin: mode.collapsible ? Config.panel.pill.listGap : Config.panel.listGap
+            anchors.top: header.bottom
+            anchors.topMargin: Config.panel.listGap
             width: parent.width
             height: mode.viewHeight
             model: rows
@@ -380,13 +223,13 @@ IslandMode {
                         height: mode.rowsLook.headerHeight
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: Config.activity.captionSize
-                        color: Config.colors.secondary
+                        color: palette.placeholderText
                         text: mode.layout.otherTitle
                     }
                     StyledText {
                         height: mode.rowsLook.rowHeight
                         verticalAlignment: Text.AlignVCenter
-                        color: Config.colors.secondary
+                        color: palette.placeholderText
                         text: mode.layout.searchingText
                     }
                 }
@@ -401,7 +244,7 @@ IslandMode {
                 required property string busy
                 required property bool failed
                 required property int battery
-                readonly property color tint: connected ? Config.colors.accent : Config.colors.text
+                readonly property color tint: connected ? Config.colors.accent : palette.windowText
                 readonly property string status: busy === "pairing" ? mode.layout.pairingText : busy === "connecting" ? mode.layout.connectingText : busy === "disconnecting" ? mode.layout.disconnectingText : failed ? mode.layout.failedText : battery >= 0 ? mode.layout.batteryFormat.arg(battery) : ""
 
                 width: list.width
@@ -438,7 +281,7 @@ IslandMode {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: text !== ""
                         font.pixelSize: mode.rowsLook.statusSize
-                        color: row.failed && row.busy === "" ? Config.colors.danger : Config.colors.secondary
+                        color: row.failed && row.busy === "" ? Config.colors.danger : palette.placeholderText
                         text: row.status
                     }
                     Icon {

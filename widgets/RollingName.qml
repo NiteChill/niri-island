@@ -10,7 +10,7 @@ Item {
 
     property string text
     property bool animate: true
-    property color color: Config.colors.text
+    property color color: palette.windowText
     property real pixelSize: Config.panel.nameSize
 
     implicitHeight: label.implicitHeight

@@ -4,41 +4,65 @@ import QtQuick.Window
 
 import "../services"
 
-// The island: one rounded shape at the top of the screen that springs to the size of its active mode,
-// and hosts every mode at once (see IslandMode for the content transition). It shows panels the user
-// opens (search, battery, wifi) and what Activity puts up (volume, brightness, microphone, messages,
-// notifications); shell.qml picks the mode from Activity.current. Settings: config.jsonc "island".
+// A surface that springs to the size of its active mode and hosts every one of its modes at once (see
+// IslandMode for the content transition). Two of them exist (shell.qml):
+//  - the notch: what happens now (volume, alerts, the music playing, the media controls) in the black
+//    island at the top of the screen, glued to its edge with concave "flares" (island.style "notch") or
+//    floating (style "pill"); at rest a small empty shape (RestMode)
+//  - the dropdown surface: the dropdowns opened from the bar (Wi-Fi, battery, the calendar...), a card
+//    under the bar in the light / dark theme's color, hidden while none is open (Dropdown.qml)
 // The shape is drawn as a path: Apple-style continuous corners (island.cornerSmoothing; 0 = a plain rounded
-// rectangle instead, cheaper), corners from the corner style (island.shape, see Config.corner), and optionally
-// glued to the top edge of the screen with concave "flares" joining it to the edge (island.attachToTop,
-// NotchNook style). The flares are drawn outside the island's bounds (not clickable, not part of its size).
+// rectangle instead, cheaper), its corners from corners.* (Config.corner).
+// Colors: it sets the palette its content inherits (palette.window = its fill, windowText / placeholderText
+// = text / secondary): white on black in the notch, the theme's in the dropdowns.
 Item {
     id: island
 
     // ---- API ----
-    property string current: "idle"      // name of the mode to show (each mode compares itself to it)
-    // height when the active mode is shorter (idle): the bar minus its gaps (attached: no gap above)
-    readonly property real restHeight: Config.restHeight
-    // space above the island inside the bar (0 when attached to the top edge)
-    readonly property real topGap: attached ? 0 : Config.bar.gaps
+    property string current: ""          // name of the mode to show (each mode compares itself to it)
+    // height a mode takes at least (one-line pop-ups: island.activityHeight); the notch's own resting
+    // size is RestMode's
+    property real restHeight: Config.restHeight
+    property real restWidth: 0
+    property real minWidth: 0
     // the screen's size (set by shell.qml), for modes that follow its proportions
     property real screenWidth: 0
     property real screenHeight: 0
-    readonly property real restWidth: Config.island.minWidth
-    readonly property real minWidth: Config.island.minWidth
-    readonly property var transition: Config.island.transition   // read by IslandMode as `tr`
+    property var transition: Config.island.transition   // read by IslandMode as `tr`
     default property alias modes: host.data
     readonly property bool hovered: hover.hovered
-    // the open panel was opened from the keyboard (set by shell.qml): e.g. quick settings selects its first
-    // switch right away
+    // the open dropdown was opened from the keyboard (set by shell.qml): e.g. quick settings selects its
+    // first switch right away
     property bool keyboardOpened: false
+    // glued to the top edge with flares (the notch); false = rounded all round
+    property bool attached: false
+    // the corner role of its corners (Config.corner): "island" for the notch, "menu" for the dropdowns
+    property string cornerRole: "island"
+    property color fill: Config.island.color
+    // a hairline around the shape (the dropdown card, like a macOS menu's edge); 0 = none
+    property color edgeColor: "transparent"
+    property real edgeWidth: 0
+    property color textColor: Config.colors.text
+    property color secondaryColor: Config.colors.secondary
+    // with no active mode: keep the last size (the dropdown surface fading out) instead of springing to rest
+    property bool keepSize: false
+    // the content only crossfades while the shape morphs (the dropdowns): no scaling with the shape, no pop,
+    // no blur. False = the notch's full transition (see IslandMode)
+    property bool plainFade: false
     // forwarded from the modes, so the owner handles them once for all modes
     signal requestState(string name)
     signal holdKeyboard()
 
+    palette.window: fill
+    palette.windowText: textColor
+    palette.placeholderText: secondaryColor
+
     // Every mode, captured once at startup: host.children itself changes when a mode's blur layer
     // is created, so reading it in a binding loops.
     property var modeList: []
+    // another surface's modes the launcher also lists (the dropdowns' launcher lists the notch's media
+    // controls too; set by shell.qml)
+    property var extraModes: []
     readonly property Item activeMode: modeList.find(m => m.active) || null
 
     // How visible the most visible *leaving* mode still is (0 = nothing leaving).
@@ -51,8 +75,10 @@ Item {
     }
 
     // Targets: pure bindings, never animated
-    readonly property real targetWidth: activeMode ? activeMode.fullWidth : restWidth
-    readonly property real targetHeight: activeMode ? activeMode.fullHeight : restHeight
+    property real _keptW: 0
+    property real _keptH: 0
+    readonly property real targetWidth: activeMode ? activeMode.fullWidth : keepSize ? _keptW : restWidth
+    readonly property real targetHeight: activeMode ? activeMode.fullHeight : keepSize ? _keptH : restHeight
 
     // The only animated values. They follow _w/_h, which are only updated *after* the direction
     // flags below, so each Behavior starts with the right spring and delay.
@@ -62,13 +88,13 @@ Item {
     width: _w
     height: _h
     Component.onCompleted: {
-        // modes sit in the host directly or one level down (modes/AllModes.qml)
+        // modes sit in the host directly or one level down (modes/AllModes.qml, modes/AllDropdowns.qml)
         let list = [];
         const add = items => {
             for (let i = 0; i < items.length; i++) {
                 const m = items[i];
                 if (m.leaveVisibility === undefined) {
-                    if (m.panels !== undefined)
+                    if (m.isModeList !== undefined)
                         add(m.children);
                     continue;
                 }
@@ -84,13 +110,22 @@ Item {
         _lastMode = activeMode;
         _ready = true;
     }
+    // while true, size changes jump instead of springing (the dropdown surface appearing from nothing)
+    property bool jumping: false
+    // jump to the active mode's size without springing
+    property bool _jumping: false
+    function jumpToTarget() {
+        _jumping = true;
+        _w = targetWidth;
+        _h = targetHeight;
+        _jumping = false;
+    }
 
     // ---- shape ----
-    readonly property bool attached: Config.island.attachToTop
     // concave corners joining the island to the screen edge (attached only), never taller than half the island
     readonly property real flare: attached ? Config.corner("flare", height) : 0
-    // the active mode may round the island's corners more or less than the style (IslandMode.cornerScale:
-    // the screenshot's 1.5); the island eases between the two over island.cornerMorph, so it never snaps
+    // the active mode may round the island's corners more or less than the style (IslandMode.cornerScale);
+    // the island eases between the two over island.cornerMorph, so it never snaps
     property real cornerScale: activeMode ? activeMode.cornerScale : 1
     Behavior on cornerScale {
         NumberAnimation {
@@ -99,19 +134,16 @@ Item {
         }
     }
     // corner radii now (the corner style's, at most half the height)
-    readonly property real corner: Math.min(Config.corner("island", height) * cornerScale, height / 2)
-    readonly property real attachedCorner: Config.corner("attached", height)
+    readonly property real corner: Math.min(Config.corner(cornerRole, height) * cornerScale, height / 2)
+    readonly property real attachedCorner: Math.min(Config.corner("attached", height) * cornerScale, height / 2)
     // no smoothing and not attached: a plain rounded rectangle, cheaper to draw than the path (it isn't
     // rebuilt on every frame of a spring)
     readonly property bool plain: Config.island.cornerSmoothing <= 0 && !attached
-    // see-through when blurred, so the blur shows (island.blurOpacity)
-    readonly property color fill: Config.island.blur ? Qt.alpha(Config.island.color, Config.island.blurOpacity) : Config.island.color
-    // Edges on whole device pixels: at a 1.25 scale the 3 px gap is 3.75 pixels and the 38 px island
-    // 47.5, so its edges fell mid-pixel and showed as a faint row above and below (clear with small
-    // corners). The shape is drawn with each edge moved to the nearest pixel (3.75 -> 4, 51.25 -> 51: both
-    // inward, so the content stays centred in it). Layout and the transitions keep the exact size.
-    // (The window's own ratio: Screen.devicePixelRatio says 2 there. The island sits in the window's
-    // content item, at the window's origin.)
+    // Edges on whole device pixels: at a 1.25 scale a 3 px gap is 3.75 pixels and a 38 px island 47.5, so
+    // its edges fell mid-pixel and showed as a faint row above and below (clear with small corners). The
+    // shape is drawn with each edge moved to the nearest pixel, both inward, so the content stays centred
+    // in it. Layout and the transitions keep the exact size.
+    // (The window's own ratio: Screen.devicePixelRatio says 2 there.)
     readonly property real dpr: Window.window && Window.window.devicePixelRatio > 0 ? Window.window.devicePixelRatio : 1
     function snap(v) {
         return Math.round(v * dpr) / dpr;
@@ -137,15 +169,6 @@ Item {
             + " H " + n(q.p) + Config.cornerSvg(q, 2)
             + " V " + n(f) + fa + n(-f) + " 0 Z";
     }
-    // Blur behind the island (island.blur): shell.qml asks the compositor to blur what's under a rounded
-    // rectangle the island's size, with plain round corners of the island's radius (as clamped by
-    // cornerParams). The smoothed outline matches it at the diagonal and runs at most 0.5 px inside it
-    // near the edges (measured at radius 40, smoothing 0.6), so no blur shows past the outline.
-    // Attached: square top (the flares aren't blurred).
-    // (0 while blur is off: not recomputed on every frame of the spring for nothing)
-    readonly property real blurCorner: !Config.island.blur ? 0 : attached
-        ? Config.cornerParams(attachedCorner, Config.island.cornerSmoothing, Math.min(width / 2, height - flare)).r
-        : Config.cornerParams(corner, Config.island.cornerSmoothing, Math.min(width, height) / 2).r
 
     Rectangle {
         x: island.drawnX
@@ -155,6 +178,8 @@ Item {
         visible: island.plain
         radius: Math.min(island.corner, Math.min(width, height) / 2)
         color: island.fill
+        border.width: island.edgeWidth
+        border.color: island.edgeColor
     }
     Shape {
         x: island.drawnX
@@ -165,7 +190,8 @@ Item {
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
             fillColor: island.fill
-            strokeColor: "transparent"
+            strokeColor: island.edgeWidth > 0 ? island.edgeColor : "transparent"
+            strokeWidth: island.edgeWidth > 0 ? island.edgeWidth : -1
             PathSvg {
                 path: island.shapePath
             }
@@ -191,7 +217,13 @@ Item {
         }
         return Date.now() - _switchTime < Config.island.switchWindow;
     }
+    // (a size that isn't a number, a setting missing for a moment during a live reload, is ignored: a
+    // spring toward NaN never settles, and the shell spun at 100 % CPU, frozen, on 2026-11-23)
     onTargetWidthChanged: {
+        if (!isFinite(targetWidth))
+            return;
+        if (activeMode)
+            _keptW = targetWidth;
         if (!_ready)
             return;
         holdW = switching();
@@ -199,6 +231,10 @@ Item {
         _w = targetWidth;
     }
     onTargetHeightChanged: {
+        if (!isFinite(targetHeight))
+            return;
+        if (activeMode)
+            _keptH = targetHeight;
         if (!_ready)
             return;
         holdH = switching();
@@ -209,7 +245,7 @@ Item {
     readonly property var motionH: Config.spring(shrinkingH ? Config.island.shrink : Config.island.expand)
 
     Behavior on _w {
-        enabled: island._ready
+        enabled: island._ready && !island._jumping && !island.jumping
         SequentialAnimation {
             // closing: hold the shape briefly so the content visibly scales down first
             PauseAnimation {
@@ -223,7 +259,7 @@ Item {
         }
     }
     Behavior on _h {
-        enabled: island._ready
+        enabled: island._ready && !island._jumping && !island.jumping
         SequentialAnimation {
             // closing: hold the shape briefly so the content visibly scales down first
             PauseAnimation {

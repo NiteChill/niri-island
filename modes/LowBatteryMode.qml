@@ -62,7 +62,7 @@ IslandMode {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height - 2 * Config.activity.inset
             icon: mode.layout.saverIcon
-            tint: mode.saving ? Config.colors.powerSaver : Config.colors.text
+            tint: mode.saving ? Config.colors.powerSaver : palette.windowText
             solid: mode.saving
             clickable: true
             onClicked: Sys.setPowerProfile("powerSaver")
@@ -106,7 +106,7 @@ IslandMode {
                 anchors.fill: parent
                 name: mode.layout.icon
                 color: Config.colors.danger
-                opacity: Config.idle.overlayOpacity
+                opacity: Config.bar.overlayOpacity
             }
             Item {
                 width: parent.width * Sys.battery.level

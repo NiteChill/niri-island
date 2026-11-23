@@ -8,6 +8,7 @@ import Quickshell.Services.UPower
 import Quickshell.Services.Pipewire
 import Quickshell.Services.Mpris
 import Quickshell.Services.Notifications
+import Quickshell.Services.SystemTray
 
 // System state for the UI: the ONLY place components get system data from and change the system through
 // (battery, power profile, audio output, volume, microphone, brightness, Wi-Fi, Bluetooth, media, clock, apps,
@@ -28,11 +29,10 @@ Singleton {
     //   charging: bool       plugged in and charging or full,
     //   full: bool           UPower says fully charged (often below 100 % with a charge limit),
     //   profile: string      "powerSaver" | "balanced" | "performance",
-    //   color: color         the one battery color used everywhere:
-    //                        charging > power saver > low (idle.battery.dangerLevel, not charging) >
+    //   color: color         the one battery color used everywhere (the bar's icon stays white):
+    //                        charging > power saver > low (bar.battery.dangerLevel, not charging) >
     //                        performance > balanced
-    //   idleColor: color     the idle island's: the charging bolt (idle.battery.badge) says "charging" there, so
-    //                        the body takes the next color in line (power saver > performance > balanced)
+    //   low: bool            below bar.battery.dangerLevel and not charging
     // }
     readonly property var battery: {
         const dev = UPower.displayDevice;
@@ -42,7 +42,7 @@ Singleton {
         const level = ready ? Math.max(0, Math.min(1, dev.percentage)) : 0;
         const percentage = Math.round(level * 100);
         const profile = PowerProfiles.profile === PowerProfile.PowerSaver ? "powerSaver" : PowerProfiles.profile === PowerProfile.Performance ? "performance" : "balanced";
-        const low = !charging && percentage <= Config.idle.battery.dangerLevel;
+        const low = !charging && percentage <= Config.bar.battery.dangerLevel;
         const c = Config.colors;
         return {
             "ready": !!ready,
@@ -52,7 +52,7 @@ Singleton {
             "full": state === UPowerDeviceState.FullyCharged,
             "profile": profile,
             "color": charging ? c.charging : profile === "powerSaver" ? c.powerSaver : low ? c.danger : profile === "performance" ? c.performance : c.balanced,
-            "idleColor": charging && Config.idle.battery.badge.charging ? (profile === "powerSaver" ? c.powerSaver : profile === "performance" ? c.performance : c.balanced) : charging ? c.charging : profile === "powerSaver" ? c.powerSaver : low ? c.danger : profile === "performance" ? c.performance : c.balanced
+            "low": low
         };
     }
 
@@ -84,14 +84,18 @@ Singleton {
     // CLOCK
     // ==========================================
 
-    // current date/time. Ticks once a minute; once a second only while something needs seconds: the idle
-    // clock format shows them, or a component sets timeSeconds (the time panel, while it's open).
+    // current date/time. Ticks once a minute; once a second only while something needs seconds: the bar's
+    // clock format shows them, or a component sets timeSeconds.
     // (clock.date is briefly undefined while the shell reloads)
     readonly property date time: clock.date ? clock.date : new Date()
+    // a moment saved as ms since 1970 (a notification's arrival), written with a Qt date format
+    function formatStamp(ms, format) {
+        return Qt.formatDateTime(new Date(ms), format);
+    }
     property bool timeSeconds: false
     SystemClock {
         id: clock
-        precision: root.timeSeconds || /s/.test((hour24 ? Config.idle.clock.timeFormat : Config.idle.clock.timeFormat12h) + Config.idle.clock.dateFormat) ? SystemClock.Seconds : SystemClock.Minutes
+        precision: root.timeSeconds || /s/.test((hour24 ? Config.bar.clock.timeFormat : Config.bar.clock.timeFormat12h) + Config.bar.clock.dateFormat) ? SystemClock.Seconds : SystemClock.Minutes
     }
 
     // 24-hour clock or not, for every clock in the island: the system's choice (gsettings clock-format,
@@ -103,11 +107,12 @@ Singleton {
     // ==========================================
 
     // the few desktop-wide settings the island follows, as written by the settings app (or GNOME, or
-    // `gsettings set`): { accent: "blue" | "teal" | ... | "" (unknown), clockFormat: "24h" | "12h" | "" }.
+    // `gsettings set`): { accent: "blue" | "teal" | ... | "" (unknown), clockFormat: "24h" | "12h" | "",
+    // colorScheme: "prefer-dark" | "prefer-light" | "default" | "" }.
     // Read once at startup, then from `gsettings monitor`, which prints a line per change (nothing polls).
     // Replaced only when one of these values changes.
-    property var _desktop: ({ "accent": "", "clockFormat": "" })
-    readonly property var _desktopKeys: ({ "accent-color": "accent", "clock-format": "clockFormat" })
+    property var _desktop: ({ "accent": "", "clockFormat": "", "colorScheme": "" })
+    readonly property var _desktopKeys: ({ "accent-color": "accent", "clock-format": "clockFormat", "color-scheme": "colorScheme" })
     // one line of `gsettings get`/`list-recursively` ("org.gnome.desktop.interface accent-color 'blue'")
     // or `gsettings monitor` ("accent-color: 'blue'")
     function _desktopLine(line) {
@@ -126,6 +131,13 @@ Singleton {
         target: Config
         property: "systemAccent"
         value: root._desktop.accent
+    }
+    // light or dark (gsettings color-scheme), for Config.theme: the dropdowns and the notification cards
+    // follow it (the bar and the notch don't change)
+    Binding {
+        target: Config
+        property: "systemScheme"
+        value: root._desktop.colorScheme
     }
     Process {
         id: desktopRead
@@ -193,26 +205,42 @@ Singleton {
         }
     }
 
-    // ---- fullscreen (calm.fullscreen): a window fills the island's screen ----
-    // niri's JSON has no fullscreen flag: fullscreen = the active window of the active workspace on the
-    // island's screen (Quickshell.screens[0], like shell.qml) is as big as that screen (a window maximized
-    // to the edges counts too), and the overview is closed. Kept from niri's event stream (windows, their
-    // sizes, workspaces) as plain maps: no polling. The stream runs only while calm mode watches for it.
+    // ==========================================
+    // NIRI: workspaces, the focused app, fullscreen
+    // ==========================================
+
+    // Kept from niri's event stream (windows, their sizes, workspaces) as plain maps: no polling.
+    //  - workspaces: the bar's screen's (Quickshell.screens[0], like shell.qml), in order:
+    //    [{ id, idx, name, active, windows: bool }]; replaced only when what's shown changes
+    //  - focusedApp: the focused window's app name (its desktop entry's, else its app id), "" = none
+    //  - fullscreen (bar.hideInFullscreen): niri's JSON has no fullscreen flag, so fullscreen = the active
+    //    window of the active workspace on that screen is as big as the screen (a window maximized to the
+    //    edges counts too), and the overview is closed
+    property var workspaces: []
+    property string _workspacesSignature: ""
+    property string focusedApp: ""
+    // the focused window's niri id (-1 = none: an empty workspace), title and app id
+    property int focusedWindow: -1
+    property string focusedTitle: ""
+    property string _focusedAppId: ""
+    // what the focused window is now, for the app menu's rows (Float / Tile, Maximize / Restore...):
+    // { floating, maximized, fullscreen }. niri says floating; fullscreen = the window is the output's size;
+    // maximized = its column takes at least bar.appMenu.maximizedShare of the output's width (niri has no
+    // flag for either)
+    property var focusedState: ({ "floating": false, "maximized": false, "fullscreen": false })
+    property bool overview: false
     property bool fullscreen: false
     property var _niriWindows: ({})
     property var _niriWorkspaces: ({})
     property var _niriOutputs: ({})
     property bool _niriOverview: false
     property bool _niriDown: false
-    readonly property bool _fullscreenWatch: Config.calm.enabled && Config.calm.fullscreen
-    on_FullscreenWatchChanged: {
-        if (!_fullscreenWatch)
-            fullscreen = false;
-    }
+    readonly property bool _fullscreenWatch: Config.bar.hideInFullscreen
+    on_FullscreenWatchChanged: _fullscreenCheck()
     Process {
         id: niriEvents
         command: ["niri", "msg", "--json", "event-stream"]
-        running: root._fullscreenWatch && !root._niriDown
+        running: !root._niriDown
         stdout: SplitParser {
             onRead: line => root._niriEvent(line)
         }
@@ -260,6 +288,7 @@ Singleton {
         target: Quickshell
         function onScreensChanged() {
             root._fullscreenCheck();
+            root._publishNiri();
         }
     }
     function _byId(list) {
@@ -279,33 +308,138 @@ Singleton {
         if (ev.WorkspacesChanged) {
             _niriWorkspaces = _byId(ev.WorkspacesChanged.workspaces);
             _readOutputs();   // checks once read
+            _publishNiri();
             return;
         } else if (ev.WorkspaceActivated) {
             const on = spaces[ev.WorkspaceActivated.id];
             if (!on)
                 return;
-            for (const id in spaces)
+            for (const id in spaces) {
                 if (spaces[id].output === on.output)
                     spaces[id].is_active = spaces[id] === on;
+                if (ev.WorkspaceActivated.focused)
+                    spaces[id].is_focused = spaces[id] === on;
+            }
+        } else if (ev.WindowFocusChanged) {
+            for (const id in wins)
+                wins[id].is_focused = wins[id].id === ev.WindowFocusChanged.id;
         } else if (ev.WorkspaceActiveWindowChanged) {
             const e = ev.WorkspaceActiveWindowChanged, ws = spaces[e.workspace_id];
             if (ws)
                 ws.active_window_id = e.active_window_id;
         } else if (ev.WindowsChanged)
             _niriWindows = _byId(ev.WindowsChanged.windows);
-        else if (ev.WindowOpenedOrChanged)
-            wins[ev.WindowOpenedOrChanged.window.id] = ev.WindowOpenedOrChanged.window;
+        else if (ev.WindowOpenedOrChanged) {
+            const w = ev.WindowOpenedOrChanged.window;
+            if (w.is_focused)
+                for (const id in wins)
+                    wins[id].is_focused = false;
+            wins[w.id] = w;
+        }
         else if (ev.WindowClosed)
             delete wins[ev.WindowClosed.id];
         else if (ev.WindowLayoutsChanged) {
             for (const change of ev.WindowLayoutsChanged.changes)
                 if (wins[change[0]])
                     wins[change[0]].layout = change[1];
-        } else if (ev.OverviewOpenedOrClosed)
+        } else if (ev.OverviewOpenedOrClosed) {
             _niriOverview = ev.OverviewOpenedOrClosed.is_open;
-        else
+            overview = _niriOverview;
+        } else
             return;
         _fullscreenCheck();
+        _publishNiri();
+    }
+    // what the bar shows, from the maps: replaced only when it changes (window titles change all the time)
+    function _publishNiri() {
+        const screen = Quickshell.screens.length > 0 ? Quickshell.screens[0].name : "";
+        const busy = {};
+        let focused = null;
+        for (const id in _niriWindows) {
+            const w = _niriWindows[id];
+            busy[w.workspace_id] = true;
+            if (w.is_focused)
+                focused = w;
+        }
+        // the bar's own window taking the keyboard (a dropdown open) leaves niri with no focused window:
+        // the app is still the active window of the focused workspace (an empty workspace has none)
+        if (!focused)
+            for (const id in _niriWorkspaces) {
+                const ws = _niriWorkspaces[id];
+                if (ws.is_focused && ws.active_window_id !== null && ws.active_window_id !== undefined)
+                    focused = _niriWindows[ws.active_window_id] || null;
+            }
+        const list = [];
+        for (const id in _niriWorkspaces) {
+            const ws = _niriWorkspaces[id];
+            if (ws.output === screen || screen === "")
+                list.push({ "id": ws.id, "idx": ws.idx, "name": ws.name || "", "active": !!ws.is_active, "windows": !!busy[ws.id] });
+        }
+        list.sort((a, b) => a.idx - b.idx);
+        const sig = JSON.stringify(list);
+        if (sig !== _workspacesSignature) {
+            _workspacesSignature = sig;
+            workspaces = list;
+        }
+        const name = focused ? _appName(focused.app_id) : "";
+        if (name !== focusedApp)
+            focusedApp = name;
+        const id = focused ? focused.id : -1;
+        if (id !== focusedWindow)
+            focusedWindow = id;
+        const title = focused ? focused.title || "" : "";
+        if (title !== focusedTitle)
+            focusedTitle = title;
+        const appId = focused ? focused.app_id || "" : "";
+        if (appId !== _focusedAppId)
+            _focusedAppId = appId;
+        const out = _niriOutputs[screen];
+        const size = focused && focused.layout ? focused.layout.window_size : null;
+        const tile = focused && focused.layout ? focused.layout.tile_size : null;
+        const full = !!size && !!out && !!out.logical && size[0] >= Math.floor(out.logical.width) && size[1] >= Math.floor(out.logical.height);
+        const state = {
+            "floating": !!focused && !!focused.is_floating,
+            "fullscreen": full,
+            "maximized": !full && !!tile && !!out && !!out.logical && !(focused && focused.is_floating) && tile[0] >= out.logical.width * Config.bar.appMenu.maximizedShare
+        };
+        if (JSON.stringify(state) !== JSON.stringify(focusedState))
+            focusedState = state;
+    }
+    // an app id ("org.gnome.Nautilus", "zen") -> its name ("Files", "Zen Browser"), from its desktop entry
+    property var _appNames: ({})
+    function _appName(appId) {
+        if (!appId)
+            return "";
+        if (appId in _appNames)
+            return _appNames[appId];
+        const entry = _entryFor([appId, _lastPart(appId)]);
+        const last = _lastPart(appId);
+        const name = entry ? entry.name : last.charAt(0).toUpperCase() + last.slice(1);
+        _appNames[appId] = name;
+        return name;
+    }
+    // the distribution's id ("fedora", "arch"...: /etc/os-release ID), for the bar's logo; "" = unknown
+    readonly property string distro: {
+        const m = /^ID="?([^"\n]*)"?$/m.exec(osRelease.text() || "");
+        return m ? m[1] : "";
+    }
+    FileView {
+        id: osRelease
+        path: "/etc/os-release"
+        blockLoading: true
+        printErrors: false
+    }
+    // run a menu item's command: {id} = the focused window's id, ~ at the start of an argument = home
+    function runMenuCommand(command) {
+        run(command.map(a => a.replace("{id}", String(focusedWindow)).replace(/^~(?=\/|$)/, home)));
+    }
+
+    // switch to the workspace at `idx` (1-based, the bar's screen), open / close the overview
+    function focusWorkspace(idx) {
+        run(Config.bar.workspaces.focusCommand.map(a => a.replace("{idx}", String(idx))));
+    }
+    function toggleOverview() {
+        run(Config.bar.workspaces.overviewCommand);
     }
     function _fullscreenCheck() {
         const screen = Quickshell.screens.length > 0 ? Quickshell.screens[0].name : "";
@@ -324,12 +458,88 @@ Singleton {
         fullscreen = full;
     }
 
+    // ==========================================
+    // TRAY (apps' status icons: StatusNotifierItem)
+    // ==========================================
+
+    // the live list, for the bar's Repeater only (never kept: an item goes when its app quits)
+    readonly property var trayItems: SystemTray.items.values
+    // An icon's menu is drawn by the shell (the "tray" dropdown, TrayMenuMode, from trayMenu(id)): the
+    // system's own drawing (item.display) needs Quickshell running as a widgets app and did nothing here.
+    // Click (left or right): its menu when it has one (like a macOS menu bar extra: many apps, DashBeam
+    // for one, do nothing on the plain "activate"), else the app's main action; middle click = the main
+    // action. Items are looked up by id each time (an item goes when its app quits).
+    function trayItem(id) {
+        return SystemTray.items.values.find(i => i.id === id) || null;
+    }
+    function trayMenu(id) {
+        const item = trayItem(id);
+        return item && item.hasMenu ? item.menu : null;
+    }
+    function trayTitle(id) {
+        const item = trayItem(id);
+        return item ? item.tooltipTitle || item.title || "" : "";
+    }
+    function trayMain(id) {
+        const item = trayItem(id);
+        if (item)
+            item.activate();
+    }
+    // a click on it does something: it has a menu, or it isn't only a menu (it has a main action)
+    function trayClickable(item) {
+        return !!item && (item.hasMenu || !item.onlyMenu);
+    }
+    function trayScroll(item, delta) {
+        if (item)
+            item.scroll(delta, false);
+    }
+
+    // ---- calendar: a month as weeks of days, `offset` months from today's (the calendar dropdown) ----
+    // { title (calendar.titleFormat), weeks: [{ number (ISO week), days: [{ day, inMonth, today }] }] }.
+    // Depends on the date (_today), not on `time`.
+    function calendarMonth(offset) {
+        const [y, m, d] = _today.split("-").map(Number);
+        const first = new Date(y, m - 1 + offset, 1);
+        const start = new Date(first.getFullYear(), first.getMonth(), 1 - ((first.getDay() - Config.time.weekStart + 7) % 7));
+        const weeks = [];
+        for (let w = 0; w < 6; w++) {
+            const days = [];
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + i);
+                days.push({
+                    "day": day.getDate(),
+                    "inMonth": day.getMonth() === first.getMonth(),
+                    "today": day.getFullYear() === y && day.getMonth() === m - 1 && day.getDate() === d
+                });
+            }
+            const thursday = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + 3));
+            thursday.setUTCDate(thursday.getUTCDate() + 4 - (thursday.getUTCDay() || 7));
+            const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+            // a sixth row only when the month reaches it
+            if (w === 5 && !days.some(x => x.inMonth))
+                break;
+            weeks.push({ "number": Math.ceil(((thursday - yearStart) / 86400000 + 1) / 7), "days": days });
+        }
+        return { "title": Qt.formatDate(first, Config.time.titleFormat), "weeks": weeks };
+    }
+    // the weekday names in the calendar's order (calendar headers), from Config.time.weekStart
+    function weekdayNames(format) {
+        const names = [];
+        for (let i = 0; i < 7; i++)
+            names.push(Qt.formatDate(new Date(2024, 0, 7 + (Config.time.weekStart + i) % 7), format));   // 2024-01-07 was a Sunday
+        return names;
+    }
+
     // the current week, for the time panel: 7 days from Config.time.weekStart (0 = Sunday, 1 = Monday...)
     // [{ date: Date, day: int (day of month), weekday: int 0-6, today: bool }]. Only recomputed when the
     // date changes (it depends on _today, not on `time`, which ticks every second while the panel is open).
     readonly property string _today: Qt.formatDate(time, "yyyy-MM-dd")
-    // today's date, "yyyy-MM-dd" (changes once a day; for "Today" / "Yesterday" labels)
+    // today's date, "yyyy-MM-dd" (changes once a day; for "Today" / "Yesterday" labels), and yesterday's
     readonly property string today: _today
+    readonly property string yesterday: {
+        const [y, m, d] = _today.split("-").map(Number);
+        return Qt.formatDate(new Date(y, m - 1, d - 1), "yyyy-MM-dd");
+    }
     // the ISO week number of today (1-53), for the time panel; changes only with the date
     readonly property int weekNumber: {
         const [y, m, d] = _today.split("-").map(Number);
@@ -528,45 +738,154 @@ Singleton {
     }
 
     // ==========================================
-    // SCREENSHOTS (the screenshots panel)
+    // SCREENSHOTS (niri's "Screenshot captured": the screenshot card, the shelf)
     // ==========================================
 
     // screenshots: the pictures in screenshot.folder, newest first: [{ path, time (ms since 1970), width,
     // height (0 = unknown) }], read when the panel opens by bin/screenshots (one short process: sizes from
     // the files' headers, nothing decoded; nothing while it's closed). Replaced only when it changed.
-    property var screenshots: []
-    readonly property string _screenshotsTool: decodeURIComponent(Qt.resolvedUrl("../bin/screenshots").toString().replace(/^file:\/\//, ""))
-    function refreshScreenshots() {
-        if (!listScreenshots.running)
-            listScreenshots.running = true;
+    // ---- the shelf: the folder the notch holds files in (shelf.folder; bin/shelf) ----
+    // shelf: [{ path, name, time (ms), width, height (the preview's), preview (a picture path, "" = none:
+    // the file type's icon), mime, icon (the file type's theme icon) }], newest first. Read when the shelf
+    // opens and after each change made here (nothing watches the folder).
+    property var shelf: []
+    readonly property string shelfFolder: Config.shelf.folder.replace(/^~(?=\/|$)/, home)
+    readonly property string _shelfTool: decodeURIComponent(Qt.resolvedUrl("../bin/shelf").toString().replace(/^file:\/\//, ""))
+    property bool _shelfAgain: false
+    function refreshShelf() {
+        if (listShelf.running)
+            _shelfAgain = true;
+        else
+            listShelf.running = true;
     }
-    // copy a picture to the clipboard, as an image (screenshots.copyCommand)
+    // things dropped on the notch (file:// or http(s):// addresses): copied / downloaded into the folder;
+    // once there, shelfFocus names the first one (the shelf opens on it) and shelfAdded is emitted
+    property string shelfFocus: ""
+    signal shelfAdded(string path)
+    // when something was last put on the shelf (ms; a drop or a screenshot): a click on the notch opens
+    // the shelf for a little while after (Activity.openNotch)
+    property double shelfTouched: 0
+    function shelfAdd(urls) {
+        const list = (urls || []).map(u => String(u)).filter(u => /^(file|https?):\/\//.test(u));
+        if (list.length === 0)
+            return;
+        const proc = shelfProc.createObject(root, {
+            "command": [_shelfTool, "add", shelfFolder].concat(list),
+            "reports": true
+        });
+        proc.running = true;
+    }
+    // a screenshot (shelf.keepScreenshots): hard-linked into the folder
+    function shelfKeep(path) {
+        if (!Config.shelf.keepScreenshots || !path)
+            return;
+        const proc = shelfProc.createObject(root, {
+            "command": [_shelfTool, "keep", shelfFolder, path]
+        });
+        proc.running = true;
+    }
+    // off the shelf: to the trash (shelf.removeCommand), never deleted outright
+    function shelfRemove(path) {
+        // off the list at once (the trash and the next read take a moment)
+        shelf = shelf.filter(s => s.path !== path);
+        const proc = shelfProc.createObject(root, {
+            "command": _fill(Config.shelf.removeCommand, path)
+        });
+        proc.running = true;
+    }
+    // copy a picture to the clipboard, as an image (shelf.copyCommand)
     function copyImage(path) {
-        run(_fill(Config.screenshots.copyCommand, path));
+        run(_fill(Config.shelf.copyCommand, path));
+    }
+    Component {
+        id: shelfProc
+        Process {
+            id: sp
+            property bool reports: false
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    const first = text.split("\n").find(l => l.startsWith("/")) || "";
+                    if (first !== "")
+                        root.shelfTouched = Date.now();
+                    if (sp.reports && first !== "") {
+                        // on the shelf at once (its type's icon comes with the next read, its preview after)
+                        if (!root.shelf.some(s => s.path === first))
+                            root.shelf = [{
+                                    "path": first,
+                                    "name": first.slice(first.lastIndexOf("/") + 1),
+                                    "time": Date.now(),
+                                    "width": 0,
+                                    "height": 0,
+                                    "preview": "",
+                                    "mime": "",
+                                    "icon": ""
+                                }].concat(root.shelf);
+                        root.shelfFocus = first;
+                        root.shelfAdded(first);
+                    }
+                    root.refreshShelf();
+                    sp.destroy();
+                }
+            }
+        }
+    }
+    // The list comes at once with the thumbnails already made (--cached); the missing ones are made
+    // afterwards (bin/shelf thumbnails, a PDF's takes a second), then the folder is read again. Waiting for
+    // them left a just-dropped file off the shelf for that second.
+    Process {
+        id: shelfThumbnails
+        command: [root._shelfTool, "thumbnails", root.shelfFolder]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (Number(text) > 0)
+                    root.refreshShelf();
+            }
+        }
     }
     Process {
-        id: listScreenshots
-        command: [root._screenshotsTool, "list", Config.screenshot.folder.replace(/^~(?=\/|$)/, root.home), Config.screenshots.extensions.join(",")]
+        id: listShelf
+        command: [root._shelfTool, "list", root.shelfFolder, "--cached"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const next = [];
                 for (const l of text.split("\n")) {
                     const f = l.split("\t");
-                    if (f.length >= 4)
-                        next.push({ "path": f.slice(3).join("\t"), "time": Math.round(Number(f[0]) * 1000), "width": Number(f[1]) || 0, "height": Number(f[2]) || 0 });
+                    if (f.length < 7)
+                        continue;
+                    const path = f[3];
+                    next.push({
+                        "path": path,
+                        "name": path.slice(path.lastIndexOf("/") + 1),
+                        "time": Math.round(Number(f[0]) * 1000),
+                        "width": Number(f[1]) || 0,
+                        "height": Number(f[2]) || 0,
+                        "preview": f[4],
+                        "mime": f[5],
+                        // the file type's icon, found by bin/shelf in the icon theme (Quickshell's own lookup
+                        // doesn't know the desktop's theme: it found no type icons)
+                        "icon": f[6] !== "" ? "file://" + f[6].split("/").map(encodeURIComponent).join("/") : ""
+                    });
                 }
-                if (JSON.stringify(next) !== JSON.stringify(root.screenshots))
-                    root.screenshots = next;
+                if (JSON.stringify(next) !== JSON.stringify(root.shelf))
+                    root.shelf = next;
             }
         }
+        onExited: {
+            if (root._shelfAgain) {
+                root._shelfAgain = false;
+                Qt.callLater(() => listShelf.running = true);
+            } else if (!shelfThumbnails.running)
+                shelfThumbnails.running = true;
+        }
     }
+    Component.onCompleted: refreshShelf()
 
     // Handing a file to another app by drag and drop (a picture dragged out of the island): sandboxed apps
     // (a Flatpak browser, which can only read Downloads) can't open a path we give them, so the file also
     // goes through the desktop's file transfer portal, like Files does: offerFile(path) gets a key for it
     // (transferKeys[path], a moment later), dropped as application/vnd.portal.filetransfer; the app gets
-    // its own readable copy of the file. bin/screenshots transfer runs only while `fileTransfer` (the
-    // screenshots panel binds it while on screen); the keys last as long as it runs.
+    // its own readable copy of the file. bin/shelf transfer runs only while `fileTransfer` (the shelf
+    // binds it while on screen); the keys last as long as it runs.
     property bool fileTransfer: false
     property var transferKeys: ({})
     property var _transferQueue: []
@@ -585,7 +904,7 @@ Singleton {
     Process {
         id: transferProc
         property bool ready: false
-        command: [root._screenshotsTool, "transfer"]
+        command: [root._shelfTool, "transfer"]
         running: root.fileTransfer
         stdinEnabled: true
         onStarted: {
@@ -785,7 +1104,7 @@ Singleton {
     readonly property var _wifiScanned: {
         if (!wifiScan || !_wifiDevice || !_wifiDevice.networks)
             return [];
-        const levels = Config.idle.wifi.icons.length;
+        const levels = Config.bar.wifi.icons.length;
         const byName = {};
         for (const n of _wifiDevice.networks.values) {
             if (!n.name)
@@ -1141,6 +1460,24 @@ Singleton {
             src.audio.muted = !src.audio.muted;
     }
 
+    // the outputs sound can go to (quick settings' list under the volume): [{ name, description, active }],
+    // the one in use first. Plain values: setAudioOutput looks the node up again by name.
+    readonly property var audioOutputs: {
+        const def = Pipewire.defaultAudioSink;
+        const list = Pipewire.nodes.values.filter(n => n.isSink && !n.isStream && n.audio).map(n => ({
+                    "name": n.name,
+                    "description": n.description || n.nickname || n.name,
+                    "active": !!def && def.name === n.name
+                }));
+        list.sort((a, b) => (b.active - a.active) || a.description.localeCompare(b.description));
+        return list;
+    }
+    function setAudioOutput(name) {
+        const node = Pipewire.nodes.values.find(n => n.name === name && n.isSink && !n.isStream);
+        if (node)
+            Pipewire.preferredDefaultAudioSink = node;
+    }
+
     // Pipewire doesn't expose the sink's active port (speaker vs headphone jack), so ask pactl,
     // only when something changes (pactl subscribe below), debounced
     Process {
@@ -1361,7 +1698,7 @@ Singleton {
     // cava missing or failing: the bars dance on their own until the next start (no retry loop)
     property bool _cavaMissing: false
     readonly property bool _levelsWanted: mediaLevelUsers > 0 && media.playing && Config.media.bars.realSound
-    // a short gap with no bars on screen (the music alert handing over to the idle island) keeps cava
+    // a short gap with no bars on screen (the music in the notch covered by a pop-up for a moment) keeps cava
     // running: it stops media.bars.stopDelay after the last one goes
     property bool _levelsOn: false
     on_LevelsWantedChanged: {
@@ -1381,7 +1718,7 @@ Singleton {
             root._mediaLevels = [];
         }
     }
-    readonly property int mediaLevelBands: Math.max(Config.media.bars.count, Config.idle.media.count, Config.nowPlaying.count)
+    readonly property int mediaLevelBands: Math.max(Config.media.bars.count, Config.nowPlaying.count)
     readonly property string _cavaConfig: ["[general]", "bars = " + mediaLevelBands, "framerate = " + Config.media.bars.framerate, "autosens = 1", "lower_cutoff_freq = " + Config.media.bars.lowFrequency, "higher_cutoff_freq = " + Config.media.bars.highFrequency, "[input]", "method = pulse", "source = auto", "[output]", "method = raw", "raw_target = /dev/stdout", "data_format = ascii", "ascii_max_range = 1000", "bar_delimiter = 59", "frame_delimiter = 10", "channels = mono", "mono_option = average", "[smoothing]", "noise_reduction = " + Config.media.bars.smoothing, ""].join("\n")
     Process {
         id: levelStream
@@ -1461,6 +1798,28 @@ Singleton {
     }
 
     property string _mediaLast: ""
+    // the music's own window is in front (Activity then keeps it out of the notch: you're looking at it).
+    // The player's app (its desktop entry / name) against the focused window's app id; for a browser
+    // (nowPlaying.browsers) the playing tab must be the one in front too: MPRIS doesn't say which tab
+    // plays, but the window's title is the active tab's: it holds the track ("Gemstone - YouTube"), or the
+    // name of a music site (nowPlaying.musicSites: YouTube Music's tab is often just "YouTube Music").
+    // Anything else: the notch keeps showing it.
+    readonly property bool mediaFocused: {
+        const p = _mediaPlayer;
+        const id = _norm(_focusedAppId);
+        if (!p || id === "")
+            return false;
+        const names = [p.desktopEntry, _lastPart(p.desktopEntry), p.identity].map(_norm).filter(n => n.length > 1);
+        const sameApp = names.some(n => n === id || n === _norm(_lastPart(_focusedAppId)) || (n.length > 2 && id.includes(n)));
+        if (!sameApp)
+            return false;
+        const browser = Config.nowPlaying.browsers.some(b => id.includes(_norm(b)) || names.includes(_norm(b)));
+        if (!browser)
+            return true;
+        const title = focusedTitle.toLowerCase();
+        const track = (p.trackTitle || "").trim().toLowerCase();
+        return (track !== "" && title.includes(track)) || Config.nowPlaying.musicSites.some(s => s !== "" && title.includes(s.toLowerCase()));
+    }
     readonly property var _mediaPlayer: {
         const ps = Mpris.players.values;
         const playing = ps.find(p => p.isPlaying);
@@ -1645,6 +2004,7 @@ Singleton {
         id: statFile
         FileView {
             blockLoading: true
+            printErrors: false   // the sender (a notify-send) may already be gone: the chain just ends there
         }
     }
     // letters and digits only, lower case: "org.gnome.Nautilus" ~ "nautilus", "Zen Browser" ~ "zenbrowser"

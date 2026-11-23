@@ -4,12 +4,10 @@ import "../services"
 import "../island"
 import "../widgets"
 
-// Island mode (an activity, put up by Activity): the charger was plugged in. As tall as the resting island:
+// Notch mode (an activity, put up by Activity): the charger was plugged in. One line (island.activityHeight):
 // "Charging" at the left ("Fully charged" once UPower says so), and at the right the level in green next
-// to the idle island's battery (same widget and size, green while charging), whose fill sweeps up to the
-// level as the alert appears; then the idle island's bolt pops in, cut into its end (charging.bolt, the
-// idle.battery.badge look), so handing back to the idle island only changes the color. Clicking it opens
-// the battery panel.
+// to the bar's battery (same widget, green while charging), whose fill sweeps up to the level as the alert
+// appears; then the bolt pops in, cut into its end (charging.bolt, the bar.battery.badge look).
 IslandMode {
     id: mode
 
@@ -87,16 +85,16 @@ IslandMode {
             text: Sys.battery.percentage + "%"
         }
 
-        // the idle island's battery, at the same size: same height as an idle icon slot. Its width keeps the
-        // bolt's room from the start, so nothing moves when the bolt pops in.
+        // the bar's battery, at the same size (as tall as a bar item's highlight). Its width keeps the bolt's
+        // room from the start, so nothing moves when the bolt pops in.
         Item {
             id: battery
-            readonly property var badge: Config.idle.battery.badge
+            readonly property var badge: Config.bar.battery.badge
             anchors.right: parent.right
             anchors.rightMargin: Config.activity.edge
             anchors.verticalCenter: parent.verticalCenter
-            width: Config.idle.battery.size + (mode.layout.bolt ? boltCut.overhangX : 0)
-            height: mode.restHeight - 2 * Config.island.pillInset
+            width: Config.bar.battery.size + (mode.layout.bolt ? boltCut.overhangX : 0)
+            height: Config.bar.item.height
             CutoutBadge {
                 id: boltCut
                 height: parent.height
@@ -106,7 +104,7 @@ IslandMode {
                 size: battery.badge.chargingSize
                 overhangX: size / 2 + battery.badge.offset
                 gap: battery.badge.gap
-                contentWidth: Config.idle.battery.size
+                contentWidth: Config.bar.battery.size
                 contentHeight: alertBattery.drawnHeight
                 Battery {
                     id: alertBattery

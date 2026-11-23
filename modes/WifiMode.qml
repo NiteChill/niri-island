@@ -1,36 +1,25 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Shapes
 
 import "../services"
 import "../island"
 import "../widgets"
 
-// Wi-Fi panel, an instrument like the battery panel (size, motion and the pill: the shared Panels settings):
-//  - on top, centred: the network's name (or "Off" / "Not connected"); a new name rolls in (RollingName)
-//  - the Wi-Fi icon, big: the idle icon's dot and two round-capped arcs with its own proportions, scaled
-//    up (not the icon file: strokes, so they stay crisp and animate). Lit in blue up to the connection's
-//    bars (the dot is the first), grey above. Opening (and joining a network) lights it from the dot out,
-//    each part fading from grey to blue. While searching (nothing found yet) or connecting, a ripple runs
-//    out through it; a failed attempt shakes it and flashes it red (the motion is GlyphMotion's, shared
-//    with the Bluetooth panel). The symbol is also the switch: click it (or press Space) to turn Wi-Fi on / off. It brightens under
-//    the pointer and sinks a little when pressed; turning off fades the lit parts back to grey, outer first
-//  - the nearby networks, right under the symbol (or behind a pill "Networks · 7" (ExpandPill) that unfolds
-//    them, panel.collapsibleList) (Sys.wifiNetworks, scanned only while this
-//    panel is open) in two groups, saved then others. Each row: signal bars, the name, a lock when
-//    secured, a blue check / "Connecting…" / what went wrong in red. Click (or Up/Down + Enter): saved and
-//    open networks connect right away; a new secured one (or one whose last attempt failed) opens a
-//    password field under its row. Enter connects; Escape, the ×, or the arrows cancel
+// Wi-Fi dropdown (under the bar's Wi-Fi icon), calm like the macOS menu: "Wi-Fi" and a switch on top,
+// then the nearby networks (Sys.wifiNetworks, scanned only while it's open) in two groups, saved then
+// others (PanelList). Each row: signal bars, the name, a lock when secured, a blue check / "Connecting…" /
+// what went wrong in red. Click (or Up/Down + Enter): saved and open networks connect right away; a new
+// secured one (or one whose last attempt failed) opens a password field under its row. Enter connects;
+// Escape, the ×, or the arrows cancel. Space flips the switch.
 // The list is a ListView fed by a ListModel updated in place (only the rows on screen exist; scan
-// updates change rows instead of rebuilding them). Up/Down or Enter unfold it from the keyboard.
+// updates change rows instead of rebuilding them). It scrolls past panel.visibleRows.
 IslandMode {
     id: mode
 
     readonly property var layout: Config.wifi
     // the rows' look, shared with the other list panel (PanelList)
     readonly property var rowsLook: Config.panel.list
-    readonly property var look: Config.wifi.hero
     launcher: Config.wifi.launcher
     // don't collapse when the mouse leaves while a password is being typed, and Escape then cancels the
     // password instead of closing the panel
@@ -50,15 +39,10 @@ IslandMode {
     property var networks: Sys.wifiNetworks
     readonly property bool connecting: networks.some(n => n.connecting)
 
-    // ---- the list unfolds from the pill ----
-    // panel.collapsibleList: the list waits behind the pill until it's clicked; otherwise (the default) it
-    // shows right away and there's no pill (Wi-Fi keeps a plain "Searching…" one until something is found)
-    readonly property bool collapsible: Config.panel.collapsibleList
-    property bool expanded: false
-    readonly property bool listShown: wifiOn && (expanded || !collapsible)
+    readonly property bool listShown: wifiOn && networks.length > 0
 
-    // keyboard: Up/Down pick a network, Enter connects (both unfold the list first); Escape closes the
-    // panel (IslandMode), or cancels the password field when it's open
+    // keyboard: Up/Down pick a network, Enter connects, Space flips the switch; Escape closes the
+    // dropdown (IslandMode), or cancels the password field when it's open
     keyTarget: mode
     // the selection follows the network, not the row: when the list reorders (a network connects and
     // moves to the saved group, a new one shows up above), Enter must still mean the same network
@@ -80,7 +64,6 @@ IslandMode {
             const n = networks.find(n => n.name === attempt);
             if (n && n.failed) {
                 attempt = "";
-                motion.fail();
             } else if (!n || n.connected) {
                 attempt = "";
             }
@@ -90,14 +73,11 @@ IslandMode {
     Keys.onDownPressed: step(1)
     // move the selection with the keyboard; leaves password entry (that network is no longer the one picked)
     function step(dir) {
-        if (!wifiOn)
+        if (!listShown)
             return;
-        if (!listShown) {
-            expanded = true;
-            return;
-        }
         if (asking !== "")
             cancelPassword();
+        list.keyShown = true;
         selected = Math.max(0, Math.min(networks.length - 1, selected + dir));
         revealRow(selected);
     }
@@ -108,11 +88,7 @@ IslandMode {
     Keys.onReturnPressed: enter()
     Keys.onEnterPressed: enter()
     function enter() {
-        if (!wifiOn)
-            return;
-        if (!listShown)
-            expanded = true;
-        else
+        if (listShown)
             activate(selected);
     }
 
@@ -123,7 +99,7 @@ IslandMode {
         if (active) {
             networks = Qt.binding(() => Sys.wifiNetworks);
             list.reset();
-            motion.replay(true);
+            list.keyShown = !!island && island.keyboardOpened;
         } else
             networks = networks;
     }
@@ -132,7 +108,6 @@ IslandMode {
         if (!onScreen) {
             asking = "";
             selected = 0;
-            expanded = false;
         }
     }
     function activate(i) {
@@ -159,54 +134,6 @@ IslandMode {
     function cancelPassword() {
         asking = "";
         mode.forceActiveFocus();
-    }
-
-    // ---- the name on top: rolls when it changes ----
-    readonly property string heroName: {
-        if (!wifiOn)
-            return look.offText;
-        if (Sys.wifi.connected)
-            return Sys.wifi.ssid;
-        const n = networks.find(n => n.connecting);
-        return n ? n.name : layout.notConnectedText;
-    }
-
-    // ---- the symbol ----
-    // the idle Wi-Fi icon (assets/icons/wifi3.svg) redrawn big: a dot and two round-capped arcs with the
-    // icon's own proportions (glyph.*, in the icon's 24-unit grid, times glyph.scale). The dot is the first
-    // bar, like the small icons: 1 bar = the dot, 2 = + the inner arc, 3 = all. Its motion is GlyphMotion's
-    GlyphMotion {
-        id: motion
-        active: mode.active
-        parts: 3
-        live: mode.wifiOn && Sys.wifi.connected ? Math.min(3, Sys.wifi.bars) : 0
-        rippling: mode.onScreen && mode.wifiOn && (mode.connecting || mode.networks.length === 0)
-        fast: mode.connecting
-        hovered: glyphHover.hovered
-    }
-    // joining another network while the panel is open lights it up again
-    readonly property string ssid: Sys.wifi.connected ? Sys.wifi.ssid : ""
-    onSsidChanged: {
-        if (active && ssid !== "")
-            motion.replay(false);
-    }
-
-    // one arc of the symbol: a round-capped stroke on a circle around (cx, cy), centred on straight up
-    component Arc: ShapePath {
-        property real cx
-        property real cy
-        property real r
-        property real span
-        fillColor: "transparent"
-        capStyle: ShapePath.RoundCap
-        PathAngleArc {
-            centerX: cx
-            centerY: cy
-            radiusX: r
-            radiusY: r
-            startAngle: -90 - span / 2
-            sweepAngle: span
-        }
     }
 
     // ---- rows: a ListModel kept in sync with Sys.wifiNetworks, changed in place ----
@@ -239,7 +166,7 @@ IslandMode {
     readonly property int savedCount: networks.filter(n => n.connected || n.known).length
     readonly property int otherCount: networks.length - savedCount
     readonly property real listHeight: networks.length === 0 ? 0 : (savedCount > 0 ? rowsLook.headerHeight : 0) + (otherCount > 0 ? rowsLook.headerHeight : 0) + (savedCount > 0 && otherCount > 0 ? rowsLook.sectionGap : 0) + networks.length * rowsLook.rowHeight + fieldRoom
-    // what's shown: all of it, up to hero.visibleRows rows (plus a group title), then it scrolls
+    // what's shown: all of it, up to panel.visibleRows rows (plus a group title), then it scrolls
     readonly property real viewHeight: Math.min(listHeight, Config.panel.visibleRows * rowsLook.rowHeight + rowsLook.headerHeight)
 
     // top of row i in the list, computed exactly (ListView only estimates rows it hasn't created yet)
@@ -277,21 +204,11 @@ IslandMode {
         scrollTo(y);
     }
 
-    // ---- panel size ----
-    // the symbol, in px: the icon's grid times glyph.scale. The arcs' common centre sits centerDrop below
-    // the dot's centre; the outer arc's top edge is the symbol's top, the dot's bottom its bottom
-    readonly property real gs: look.glyph.scale
-    readonly property real glyphTop: (look.glyph.outerRadius + look.glyph.thickness / 2) * gs     // centre -> top
-    readonly property real glyphHeight: glyphTop - look.glyph.centerDrop * gs + look.glyph.dotRadius * gs
-    readonly property real glyphWidth: 2 * gs * (look.glyph.outerRadius * Math.sin(look.glyph.outerSpan / 2 * Math.PI / 180) + look.glyph.thickness / 2)
-    readonly property real heroHeight: nameBox.height + Config.panel.nameGap + glyphHeight
-    // the pill: to unfold the list, or (list always shown) just "Searching…" until a network shows up
-    readonly property bool pillShown: wifiOn && (collapsible || networks.length === 0)
-    readonly property real pillRoom: pillShown ? Config.panel.pill.gap + Config.panel.pill.height : 0
-    readonly property real listRoom: listShown && networks.length > 0 ? (collapsible ? Config.panel.pill.listGap : Config.panel.listGap) + viewHeight : 0
-
+    // ---- size ----
+    // still searching (on, nothing found yet): one grey line where the list goes
+    readonly property bool searching: wifiOn && networks.length === 0
     implicitWidth: Config.panel.width
-    implicitHeight: 2 * Config.panel.padding + heroHeight + pillRoom + listRoom
+    implicitHeight: 2 * Config.panel.padding + Config.panel.header.height + (listShown ? Config.panel.listGap + viewHeight : searching ? Config.panel.listGap + rowsLook.rowHeight : 0)
 
     // fixed-size content box, pinned to the top so nothing slides while the island grows
     Item {
@@ -301,102 +218,32 @@ IslandMode {
         width: mode.implicitWidth - 2 * Config.panel.padding
         height: mode.implicitHeight - 2 * Config.panel.padding
 
-        // ---- the name ----
-        RollingName {
-            id: nameBox
-            width: parent.width
-            animate: mode.active
-            color: mode.wifiOn ? Config.colors.text : Config.colors.secondary
-            text: mode.heroName
-        }
-
-        // ---- the symbol ----
-        Item {
-            id: glyph
-            anchors.top: nameBox.bottom
-            anchors.topMargin: Config.panel.nameGap
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.horizontalCenterOffset: motion.shake
-            width: mode.glyphWidth
-            height: mode.glyphHeight
-
-            // the arcs' centre, and the dot's
-            readonly property real cx: width / 2
-            readonly property real cy: mode.glyphTop
-            readonly property real dotY: cy - mode.look.glyph.centerDrop * mode.gs
-            readonly property real stroke: mode.look.glyph.thickness * mode.gs
-            readonly property real inner: mode.look.glyph.innerRadius * mode.gs
-            readonly property real outer: mode.look.glyph.outerRadius * mode.gs
-
-            Shape {
-                anchors.fill: parent
-                preferredRendererType: Shape.CurveRenderer
-
-                Arc {
-                    cx: glyph.cx
-                    cy: glyph.cy
-                    r: glyph.inner
-                    span: mode.look.glyph.innerSpan
-                    strokeWidth: glyph.stroke
-                    strokeColor: motion.partColor(1)
-                }
-                Arc {
-                    cx: glyph.cx
-                    cy: glyph.cy
-                    r: glyph.outer
-                    span: mode.look.glyph.outerSpan
-                    strokeWidth: glyph.stroke
-                    strokeColor: motion.partColor(2)
-                }
-            }
-
-            Rectangle {
-                id: dot
-                width: 2 * mode.look.glyph.dotRadius * mode.gs
-                height: width
-                radius: width / 2
-                x: glyph.cx - width / 2
-                y: glyph.dotY - height / 2
-                color: motion.partColor(0)
-            }
-
-            // the symbol is the Wi-Fi switch
-            scale: glyphTap.pressed ? Config.motion.pressScale : 1
-            Behavior on scale {
-                NumberAnimation {
-                    duration: Config.motion.pressDuration
-                    easing.type: Easing.OutCubic
-                }
-            }
-            HoverHandler {
-                id: glyphHover
-                cursorShape: Qt.PointingHandCursor
-            }
-            TapHandler {
-                id: glyphTap
-                onTapped: mode.toggleWifi()
+        PanelHeader {
+            id: header
+            title: mode.layout.title
+            Switch {
+                checked: mode.wifiOn
+                onToggled: mode.toggleWifi()
             }
         }
 
-        // ---- the pill that unfolds the list ----
-        ExpandPill {
-            id: pill
-            visible: mode.pillShown
-            anchors.top: glyph.bottom
-            anchors.topMargin: Config.panel.pill.gap
-            anchors.horizontalCenter: parent.horizontalCenter
-            showArrow: mode.collapsible && mode.networks.length > 0
-            expanded: mode.expanded
-            text: mode.networks.length === 0 ? mode.layout.searchingText : mode.look.pillText.arg(mode.networks.length)
-            onClicked: mode.expanded = !mode.expanded
+        StyledText {
+            visible: mode.searching
+            anchors.top: header.bottom
+            anchors.topMargin: Config.panel.listGap
+            x: mode.rowsLook.rowPadding
+            height: mode.rowsLook.rowHeight
+            verticalAlignment: Text.AlignVCenter
+            color: palette.placeholderText
+            text: mode.layout.searchingText
         }
 
         // ---- networks ----
         PanelList {
             id: list
-            visible: mode.listShown && mode.networks.length > 0
-            anchors.top: mode.collapsible ? pill.bottom : glyph.bottom
-            anchors.topMargin: mode.collapsible ? Config.panel.pill.listGap : Config.panel.listGap
+            visible: mode.listShown
+            anchors.top: header.bottom
+            anchors.topMargin: Config.panel.listGap
             width: parent.width
             height: mode.viewHeight
             model: rows
@@ -416,7 +263,7 @@ IslandMode {
                 required property bool connected
                 required property bool connecting
                 required property bool failed
-                readonly property color tint: connected ? Config.colors.accent : Config.colors.text
+                readonly property color tint: connected ? Config.colors.accent : palette.windowText
                 readonly property bool asking: mode.asking !== "" && mode.asking === name
 
                 width: list.width
@@ -427,7 +274,7 @@ IslandMode {
                     width: parent.width
                     height: mode.rowsLook.rowHeight
 
-                    // signal, like the idle island: all bars dimmed, the real ones bright on top
+                    // signal, like the bar's icon: all bars dimmed, the real ones bright on top
                     Wifi {
                         id: bars
                         x: mode.rowsLook.rowPadding
@@ -458,7 +305,7 @@ IslandMode {
                             anchors.verticalCenter: parent.verticalCenter
                             visible: text !== ""
                             font.pixelSize: mode.rowsLook.statusSize
-                            color: row.failed ? Config.colors.danger : Config.colors.secondary
+                            color: row.failed ? Config.colors.danger : palette.placeholderText
                             text: row.connecting ? mode.layout.connectingText : row.failed ? mode.layout.failedText : ""
                         }
                         Icon {
@@ -467,7 +314,7 @@ IslandMode {
                             width: mode.layout.lockSize
                             height: mode.layout.lockSize
                             name: mode.layout.lockIcon
-                            color: Config.colors.secondary
+                            color: palette.placeholderText
                         }
                         Icon {
                             anchors.verticalCenter: parent.verticalCenter
@@ -495,7 +342,7 @@ IslandMode {
                     height: mode.layout.fieldHeight
                     sourceComponent: Rectangle {
                         radius: Config.corner("pill", height)
-                        color: Qt.alpha(Config.colors.text, mode.layout.tileOpacity)
+                        color: Qt.alpha(palette.windowText, mode.layout.tileOpacity)
                         Component.onCompleted: password.forceActiveFocus()
 
                         Icon {
@@ -505,7 +352,7 @@ IslandMode {
                             width: mode.layout.lockSize
                             height: mode.layout.lockSize
                             name: mode.layout.lockIcon
-                            color: Config.colors.secondary
+                            color: palette.placeholderText
                         }
                         // × : cancel
                         Badge {
@@ -519,7 +366,7 @@ IslandMode {
                             inset: mode.layout.cancelInset
                             icon: mode.layout.cancelIcon
                             glyphSize: mode.layout.cancelGlyphSize
-                            tint: Config.colors.text
+                            tint: palette.windowText
                             clickable: true
                             onClicked: mode.cancelPassword()
                         }
@@ -531,12 +378,9 @@ IslandMode {
                             anchors.rightMargin: mode.rowsLook.rowPadding
                             anchors.verticalCenter: parent.verticalCenter
                             echoMode: TextInput.Password
-                            color: Config.font.color
+                            color: palette.windowText
                             font.family: Config.font.family
-                            font.variableAxes: ({
-                                    "ROND": Config.font.roundness,
-                                    "wght": Config.font.weight
-                                })
+                            font.variableAxes: Config.axes(Config.font.size, Config.font.weight)
                             font.weight: Config.font.weight
                             font.pixelSize: Config.font.size
                             clip: true
@@ -550,7 +394,7 @@ IslandMode {
                             StyledText {
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: password.text.length === 0
-                                color: Config.colors.secondary
+                                color: palette.placeholderText
                                 text: mode.layout.passwordPlaceholder.arg(row.name)
                             }
                         }

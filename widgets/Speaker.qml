@@ -10,7 +10,7 @@ Item {
 
     property real level: Sys.audio.volume
     property bool muted: Sys.audio.muted
-    property color tint: Config.colors.text
+    property color tint: palette.windowText
 
     readonly property var vol: Config.volume
 
@@ -19,7 +19,7 @@ Item {
         visible: !speaker.muted
         name: speaker.vol.icons[speaker.vol.icons.length - 1]
         color: speaker.tint
-        opacity: Config.idle.overlayOpacity
+        opacity: Config.bar.overlayOpacity
     }
     Icon {
         anchors.fill: parent

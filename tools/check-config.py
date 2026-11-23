@@ -30,17 +30,25 @@ SCHEMA = ROOT / "config" / "schema.json"
 HEADER = """/*
   Island settings. Every setting is listed with its default value, commented out with //.
   To change one, remove the // in front of its line (the { } lines of its section are always active).
-  What each setting does: config/schema.json (or the settings app). Corners: pick a style with
-  island.shape; each style's corner sizes are in island.shapes (services/Config.qml, corner()).
+  What each setting does: config/schema.json (or the settings app). Corners: one size per role in
+  corners.* (services/Config.qml, corner()).
   Comments and trailing commas are allowed. Regenerate the commented lines:
   python3 tools/check-config.py --rewrite
 */
 """
 REQUIRED = ("key", "label", "description", "type", "default")
 # types whose value is an object/list stored under a single key
-COMPOUND = {"spring", "object", "iconList", "actionList", "stringList", "integerList", "command"}
+COMPOUND = {"spring", "object", "iconList", "actionList", "menuList", "stringList", "integerList", "command"}
 # helper functions / API on the Config singleton (not settings)
-CONFIG_API = {"icon", "glyph", "spring", "data", "handwriting", "corner", "inner", "restCorner", "restHeight", "onColor", "systemAccent", "cornerParams", "cornerSvg", "screenCorner", "roundedRectPath"}
+CONFIG_API = {"icon", "glyph", "spring", "data", "handwriting", "corner", "inner", "restCorner", "restHeight", "onColor", "systemAccent", "cornerParams", "cornerSvg", "screenCorner", "roundedRectPath", "theme", "dark", "axes", "attached", "systemScheme"}
+# settings that no longer exist but that another program may still write (the niri-settings app's island
+# page, until it's updated for the menu bar): the shell ignores them; the check only warns, and --rewrite
+# drops them
+RETIRED = ("island.blur", "island.blurOpacity", "island.attachToTop", "island.shape", "island.shapes.", "idle.", "calm.")
+
+
+def retired(key):
+    return any(key == r or (r.endswith(".") and key.startswith(r)) for r in RETIRED)
 # aliases that aren't a plain `property var x: Config.path` (file name -> {alias: setting path})
 EXTRA_ALIASES = {"IslandMode.qml": {"tr": "island.transition"}}
 
@@ -113,6 +121,26 @@ def check_value(entry, value, where):
                 problem(f"{where}: {key}[{i}].command should be a list like [\"program\", \"arg\"]")
             if "icon" in act and not (ROOT / "assets" / "icons" / act["icon"]).exists():
                 problem(f"{where}: {key}[{i}]: icon file assets/icons/{act['icon']} does not exist")
+    elif t == "menuList":
+        if not isinstance(value, list):
+            return problem(f"{where}: {key} should be a list of menu rows")
+        for i, row in enumerate(value):
+            for f in ("title", "icon"):
+                if f not in row:
+                    problem(f"{where}: {key}[{i}] is missing {f!r}")
+            if ("command" in row) == ("open" in row):
+                problem(f"{where}: {key}[{i}] needs either a command or an open")
+            if "command" in row and not (isinstance(row["command"], list) and row["command"] and all(isinstance(x, str) for x in row["command"])):
+                problem(f"{where}: {key}[{i}].command should be a list like [\"program\", \"arg\"]")
+            if "icon" in row and not (ROOT / "assets" / "icons" / row["icon"]).exists():
+                problem(f"{where}: {key}[{i}]: icon file assets/icons/{row['icon']} does not exist")
+            if "onIcon" in row and not (ROOT / "assets" / "icons" / row["onIcon"]).exists():
+                problem(f"{where}: {key}[{i}]: icon file assets/icons/{row['onIcon']} does not exist")
+            if "state" in row and row["state"] not in ("floating", "maximized", "fullscreen"):
+                problem(f"{where}: {key}[{i}].state should be floating, maximized or fullscreen")
+            for f in ("confirm", "danger", "separator"):
+                if f in row and not isinstance(row[f], bool):
+                    problem(f"{where}: {key}[{i}].{f} should be true or false")
     elif t == "spring":
         if not (isinstance(value, dict) and "response" in value and "dampingFraction" in value):
             problem(f"{where}: {key} should be {{\"response\": s, \"dampingFraction\": 0-1}}")
@@ -265,7 +293,9 @@ def main():
         if e is None:
             # values inside a compound setting (a spring's response, an action's command...) are checked
             # with that setting; anything else is undocumented
-            if not any(key.startswith(c + ".") for c in compound):
+            if retired(key):
+                print(f"note: config.jsonc: {key} is a retired setting, ignored (--rewrite drops it)")
+            elif not any(key.startswith(c + ".") for c in compound):
                 problem(f"config.jsonc: {key} has no schema entry (add it to config/schema.json)")
             continue
         check_value(e, value, "config.jsonc")

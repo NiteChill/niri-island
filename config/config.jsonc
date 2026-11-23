@@ -1,20 +1,22 @@
 /*
   Island settings. Every setting is listed with its default value, commented out with //.
   To change one, remove the // in front of its line (the { } lines of its section are always active).
-  What each setting does: config/schema.json (or the settings app). Corners: pick a style with
-  island.shape; each style's corner sizes are in island.shapes (services/Config.qml, corner()).
+  What each setting does: config/schema.json (or the settings app). Corners: one size per role in
+  corners.* (services/Config.qml, corner()).
   Comments and trailing commas are allowed. Regenerate the commented lines:
   python3 tools/check-config.py --rewrite
 */
 {
     "$schema": "./config.schema.json",
     "font": {
-        // "family": "Google Sans Flex",
-        // "bundled": "GoogleSansFlex-Variable.ttf",
+        // "family": "Allo Variable",
+        // "bundled": "AlloVariable.ttf",
         // "size": 14,
         // "weight": 600,
-        // "roundness": 100,
-        // "color": "#f2f2f2",
+        // "roundness": 15,
+        // "opticalSize": true,
+        // "opticalMin": 9,
+        // "opticalMax": 32,
     },
     "colors": {
         // "text": "#f2f2f2",
@@ -38,6 +40,37 @@
         //     "slate": "#8e9aaf"
         // },
         // "lightFill": 0.6,
+        // "scheme": "system",
+        "light": {
+            // "surface": "#f6f6f7",
+            // "card": "#ffffff",
+            // "text": "#1c1c1e",
+            // "secondary": "#86868b",
+            // "charging": "#28a745",
+            // "powerSaver": "#c79100",
+            // "border": "#000000",
+        },
+        "dark": {
+            // "surface": "#262628",
+            // "card": "#2c2c2e",
+            // "text": "#f2f2f2",
+            // "secondary": "#98989f",
+            // "charging": "#95FD83",
+            // "powerSaver": "#FAC634",
+            // "border": "#ffffff",
+        },
+        // "notificationDot": "#ff9f0a",
+        // "shadow": "#000000",
+    },
+    "corners": {
+        // "island": 32,
+        // "attached": 32,
+        // "flare": 10,
+        // "pill": 100,
+        // "row": 8,
+        // "menu": 18,
+        // "tile": 8,
+        // "small": 5,
     },
     "screenCorners": {
         "enabled": true,
@@ -46,254 +79,228 @@
         // "color": "#000000",
     },
     "bar": {
-        // "height": 44,
-        // "gaps": 3,
-    },
-    "island": {
-        "shape": "full",
-        // "color": "#000000",
-        "blur": false,
-        "blurOpacity": 0.55,
-        "cornerSmoothing": 0.6,
-        // "cornerMorph": 260,
-        "attachToTop": false,
-        // "minWidth": 100,
-        // "maxHeight": 460,
-        "shapes": {
-            "square": {
-                // "island": 6,
-                // "attached": 6,
-                // "flare": 4,
-                // "pill": 4,
-                // "row": 4,
-                // "tile": 3,
-                // "small": 2,
-            },
-            "soft": {
-                // "island": 14,
-                // "attached": 14,
-                // "flare": 8,
-                // "pill": 9,
-                // "row": 8,
-                // "tile": 6,
-                // "small": 4,
-            },
-            "round": {
-                // "island": 26,
-                // "attached": 26,
-                // "flare": 10,
-                // "pill": 12,
-                // "row": 11,
-                // "tile": 7,
-                // "small": 5,
-            },
-            "full": {
-                // "island": 40,
-                // "attached": 40,
-                // "flare": 12,
-                // "pill": 100,
-                // "row": 14,
-                // "tile": 8,
-                // "small": 6,
-            },
+        // "height": 38,
+        // "edge": 10,
+        // "hideInFullscreen": true,
+        // "hideDuration": 260,
+        "gradient": {
+            // "color": "#000000",
+            // "opacity": 0.3,
+            // "height": 110,
+            // "curve": 2.2,
         },
-        // "minGap": 40,
-        // "spacing": 0,
-        // "pillInset": 4,
-        // "pillPadding": 9,
-        // "revealTolerance": 8,
-        // "collapseDelay": 600,
-        // "shrinkDelay": 0,
-        // "iconFade": 150,
-        // "switchWindow": 150,
-        "clickOutsideCloses": true,
-        // "clickTakesKeyboard": true,
-        // "keyHoldTimeout": 1000,
-        // "priority": [
-        //     "volume",
-        //     "brightness",
-        //     "microphone",
-        //     "headphones",
-        //     "charging",
-        //     "screenshot",
-        //     "panel",
-        //     "nowPlaying",
-        //     "lowBattery",
-        //     "criticalNotification",
-        //     "wifiConnected",
-        //     "message",
-        //     "notification",
-        //     "lowNotification"
-        // ],
-        // "leaveDelay": 1200,
-        // "expand": {
-        //     "response": 0.5,
-        //     "dampingFraction": 0.8
-        // },
-        // "shrink": {
-        //     "response": 0.36,
-        //     "dampingFraction": 0.85
-        // },
-        "transition": {
-            // "fadeIn": 260,
-            // "fadeInOpacity": 0.4,
-            // "contentStart": 0.75,
-            // "fadeInStart": 0.6,
-            // "fadeOut": 260,
-            // "handoff": 0.1,
-            // "outScale": 0.92,
-            // "outFit": 0.25,
-            // "maxScale": 1.06,
-            // "minScale": 0,
-            // "blur": 1.0,
-            // "blurMax": 48,
-            // "blurOutCurve": 1.0,
-            // "pop": {
-            //     "from": 0.9,
-            //     "response": 0.5,
-            //     "dampingFraction": 0.62
-            // },
+        "item": {
+            // "height": 24,
+            // "padding": 8,
+            // "hoverOpacity": 0.14,
+            // "openOpacity": 0.22,
         },
-    },
-    "motion": {
-        // "colorFade": 250,
-        // "hoverFade": 120,
-        // "pressScale": 0.92,
-        // "pressDuration": 120,
-        // "settleDuration": 150,
-    },
-    "activity": {
-        // "edge": 16,
-        // "inset": 5,
-        // "spacing": 10,
-        // "tallHeight": 60,
-        // "titleSize": 15,
-        // "captionSize": 12,
-        // "lineSpacing": 0,
-        // "glyphSize": 16,
-        // "badgeOpacity": 0.2,
-        // "badgeHoverOpacity": 0.3,
-        "badgeLabel": {
-            // "size": 12,
-            // "gap": 4,
-            // "padding": 7,
-        },
-    },
-    "panel": {
-        // "width": 350,
-        // "padding": 20,
-        // "nameSize": 24,
-        // "nameGap": 14,
-        // "visibleRows": 4,
-        "number": {
-            // "size": 46,
-            // "weight": 500,
-            // "smallSize": 18,
-            // "rollDuration": 350,
-            // "rollFade": 3,
-            // "rollTravel": 0.2,
-        },
-        "caption": {
-            // "size": 13,
-            // "gap": 0,
-        },
-        "arc": {
-            // "gapAbove": 16,
-            // "gapBelow": 16,
-            // "thickness": 24,
-            // "bend": 26,
-            // "trackOpacity": 0.12,
-            // "tickWidth": 3,
-            // "tickLength": 8,
-            // "tickOpacity": 0.3,
-            // "majorTickOpacity": 0.6,
-            // "tickFillOpacity": 0.3,
-            // "sweepSpring": {
-            //     "response": 0.8,
-            //     "dampingFraction": 0.85
-            // },
-            // "sweepDelay": 120,
-        },
-        "glyph": {
-            // "trackOpacity": 0.12,
-            // "hoverBoost": 0.08,
-        },
-        "sweep": {
-            // "duration": 700,
-            // "delay": 300,
-            // "stagger": 0.2,
-        },
-        "ripple": {
-            // "duration": 1400,
-            // "connectingDuration": 700,
-            // "boost": 0.25,
-            // "width": 1.2,
-        },
-        "shake": {
-            // "distance": 10,
-            // "duration": 420,
-            // "flashDuration": 900,
-        },
-        "roll": {
-            // "duration": 360,
-            // "travel": 0.4,
-        },
-        // "collapsibleList": false,
-        // "listGap": 32,
-        "pill": {
-            // "icon": "expand-more.svg",
-            // "gap": 14,
-            // "height": 28,
-            // "padding": 14,
-            // "textSize": 13,
-            // "iconSize": 16,
-            // "iconGap": 2,
-            // "opacity": 0.12,
-            // "hoverOpacity": 0.2,
-            // "listGap": 10,
-        },
-        "list": {
-            // "scrollFade": 16,
-            // "scrollDuration": 220,
-            // "headerHeight": 26,
-            // "sectionGap": 6,
-            // "rowHeight": 40,
-            // "rowPadding": 12,
-            // "selectedOpacity": 0.1,
-            // "highlight": {
-            //     "response": 0.35,
-            //     "dampingFraction": 0.75
-            // },
-            // "iconSize": 18,
-            // "statusSize": 12,
-            // "trailingGap": 6,
-            // "checkIcon": "check.svg",
-            // "checkSize": 18,
-        },
-        "button": {
-            // "height": 36,
-            // "iconPadding": 13,
-            // "padding": 17,
-            // "iconSize": 16,
-            // "gap": 8,
-            // "textSize": 14,
-        },
-    },
-    "idle": {
-        "clock": {
-            "dateFormat": "",
-            // "timeFormat": "HH:mm",
-            // "timeFormat12h": "h:mm",
-            // "spacing": 12,
-            // "tabularDigits": true,
-        },
-        // "overlayOpacity": 0.45,
-        // "hoverOpacity": 0.14,
-        // "revealScale": 0.6,
-        "bluetooth": {
+        "logo": {
             // "show": true,
             // "size": 16,
+            // "icons": {
+            //     "fedora": "distro-fedora.svg",
+            //     "arch": "distro-archlinux.svg",
+            //     "debian": "distro-debian.svg",
+            //     "ubuntu": "distro-ubuntu.svg",
+            //     "nixos": "distro-nixos.svg",
+            //     "opensuse-tumbleweed": "distro-opensuse.svg",
+            //     "opensuse-leap": "distro-opensuse.svg",
+            //     "linuxmint": "distro-linuxmint.svg"
+            // },
+            // "fallbackIcon": "distro-linux.svg",
+            // "items": [
+            //     {
+            //         "title": "Files",
+            //         "icon": "folder.svg",
+            //         "command": [
+            //             "xdg-open",
+            //             "~"
+            //         ]
+            //     },
+            //     {
+            //         "title": "Settings",
+            //         "icon": "settings.svg",
+            //         "command": [
+            //             "settings"
+            //         ]
+            //     },
+            //     {
+            //         "title": "Search apps and files",
+            //         "icon": "search.svg",
+            //         "open": "search"
+            //     },
+            //     {
+            //         "title": "Wallpaper",
+            //         "icon": "image.svg",
+            //         "open": "wallpaper",
+            //         "separator": true
+            //     },
+            //     {
+            //         "title": "Shelf",
+            //         "icon": "screenshot-monitor.svg",
+            //         "open": "shelf"
+            //     },
+            //     {
+            //         "title": "Notifications",
+            //         "icon": "notifications.svg",
+            //         "open": "calendar"
+            //     },
+            //     {
+            //         "title": "Lock",
+            //         "icon": "lock.svg",
+            //         "command": [
+            //             "loginctl",
+            //             "lock-session"
+            //         ],
+            //         "separator": true
+            //     },
+            //     {
+            //         "title": "Log out",
+            //         "icon": "logout.svg",
+            //         "command": [
+            //             "niri",
+            //             "msg",
+            //             "action",
+            //             "quit",
+            //             "--skip-confirmation"
+            //         ],
+            //         "confirm": true
+            //     },
+            //     {
+            //         "title": "Restart",
+            //         "icon": "reboot.svg",
+            //         "command": [
+            //             "systemctl",
+            //             "reboot"
+            //         ],
+            //         "confirm": true
+            //     },
+            //     {
+            //         "title": "Shut down",
+            //         "icon": "power.svg",
+            //         "command": [
+            //             "systemctl",
+            //             "poweroff"
+            //         ],
+            //         "confirm": true,
+            //         "danger": true
+            //     }
+            // ],
+        },
+        "appName": {
+            // "show": true,
+            // "weight": 700,
+        },
+        "appMenu": {
+            // "items": [
+            //     {
+            //         "title": "Fullscreen",
+            //         "icon": "fullscreen.svg",
+            //         "command": [
+            //             "niri",
+            //             "msg",
+            //             "action",
+            //             "fullscreen-window",
+            //             "--id",
+            //             "{id}"
+            //         ],
+            //         "state": "fullscreen",
+            //         "onTitle": "Exit fullscreen",
+            //         "onIcon": "fullscreen-exit.svg"
+            //     },
+            //     {
+            //         "title": "Maximize",
+            //         "icon": "maximize.svg",
+            //         "command": [
+            //             "sh",
+            //             "-c",
+            //             "niri msg action focus-window --id {id} && niri msg action maximize-column"
+            //         ],
+            //         "state": "maximized",
+            //         "onTitle": "Restore",
+            //         "onIcon": "close-fullscreen.svg"
+            //     },
+            //     {
+            //         "title": "Float",
+            //         "icon": "floating.svg",
+            //         "command": [
+            //             "niri",
+            //             "msg",
+            //             "action",
+            //             "toggle-window-floating",
+            //             "--id",
+            //             "{id}"
+            //         ],
+            //         "state": "floating",
+            //         "onTitle": "Tile",
+            //         "onIcon": "view-column.svg"
+            //     },
+            //     {
+            //         "title": "Center",
+            //         "icon": "center.svg",
+            //         "command": [
+            //             "sh",
+            //             "-c",
+            //             "niri msg action focus-window --id {id} && niri msg action center-column"
+            //         ]
+            //     },
+            //     {
+            //         "title": "Close",
+            //         "icon": "close.svg",
+            //         "command": [
+            //             "niri",
+            //             "msg",
+            //             "action",
+            //             "close-window",
+            //             "--id",
+            //             "{id}"
+            //         ],
+            //         "separator": true,
+            //         "danger": true
+            //     }
+            // ],
+            // "maximizedShare": 0.9,
+        },
+        "workspaces": {
+            // "show": true,
+            // "size": 7,
+            // "activeWidth": 18,
+            // "gap": 6,
+            // "busyOpacity": 0.6,
+            // "emptyOpacity": 0.3,
+            // "spring": {
+            //     "response": 0.4,
+            //     "dampingFraction": 0.85
+            // },
+            // "focusCommand": [
+            //     "niri",
+            //     "msg",
+            //     "action",
+            //     "focus-workspace",
+            //     "{idx}"
+            // ],
+            // "overviewCommand": [
+            //     "niri",
+            //     "msg",
+            //     "action",
+            //     "toggle-overview"
+            // ],
+        },
+        "clock": {
+            // "dateFormat": "ddd d MMM",
+            // "timeFormat": "HH:mm",
+            // "timeFormat12h": "h:mm",
+            // "spacing": 8,
+            // "tabularDigits": true,
+            // "unseenDot": true,
+            // "dotSize": 6,
+        },
+        // "overlayOpacity": 0.45,
+        "bluetooth": {
+            // "size": 16,
             // "icon": "bluetooth.svg",
+            // "show": true,
         },
         "wifi": {
             // "size": 16,
@@ -302,8 +309,13 @@
             //     "wifi2.svg",
             //     "wifi3.svg"
             // ],
+            // "show": true,
+            // "offIcon": "wifi-off.svg",
         },
         "battery": {
+            // "show": true,
+            // "showPercent": false,
+            // "percentGap": 6,
             // "size": 26,
             // "icon": "battery.svg",
             "badge": {
@@ -324,92 +336,239 @@
             },
             // "dangerLevel": 15,
         },
-        "middleOpensQuickSettings": true,
-        "media": {
-            "show": true,
-            "left": true,
-            // "linger": 300,
-            // "coverColor": false,
-            // "animate": true,
-            // "count": 4,
-            // "barWidth": 2.5,
-            // "gap": 2,
-            // "height": 14,
+        "quickSettings": {
+            // "show": true,
+            // "icon": "page-info-outline.svg",
+            // "size": 16,
         },
-        // "transition": {
-        //     "fadeInStart": 0.2,
-        //     "fadeOut": 180,
-        //     "handoff": 0
-        // },
+        "aim": {
+            // "delay": 300,
+            // "slack": 24,
+            // "minMove": 3,
+        },
     },
-    "calm": {
+    "tray": {
         // "enabled": true,
-        // "always": false,
-        // "fullscreen": true,
-        // "shows": [
+        // "size": 16,
+        // "monochrome": false,
+        // "emptyText": "Loading…",
+        // "backText": "Back",
+        // "backIcon": "chevron-left.svg",
+        // "submenuIcon": "chevron-right.svg",
+    },
+    "island": {
+        // "color": "#000000",
+        "cornerSmoothing": 0.6,
+        // "cornerMorph": 300,
+        // "minWidth": 100,
+        // "style": "notch",
+        // "gap": 4,
+        "rest": {
+            // "width": 120,
+            // "height": 28,
+        },
+        // "activityHeight": 38,
+        // "shrinkDelay": 0,
+        // "switchWindow": 150,
+        "clickOutsideCloses": true,
+        // "clickTakesKeyboard": true,
+        // "keyHoldTimeout": 1000,
+        // "priority": [
+        //     "drop",
         //     "volume",
         //     "brightness",
         //     "microphone",
         //     "headphones",
         //     "charging",
-        //     "screenshot",
-        //     "nowPlaying",
+        //     "panel",
         //     "lowBattery",
-        //     "criticalNotification",
-        //     "wifiConnected"
+        //     "wifiConnected",
+        //     "message",
+        //     "nowPlaying"
         // ],
-        // "revealDelay": 150,
-        // "hideDelay": 400,
-        // "width": 80,
-        // "shorterBy": 8,
+        // "leaveDelay": 1200,
+        "drop": {
+            // "width": 280,
+            // "height": 92,
+            // "inset": 10,
+            // "fillOpacity": 0.06,
+            // "lineOpacity": 0.35,
+            // "lineWidth": 1.5,
+            // "dash": 4,
+            // "dashGap": 3,
+            // "gap": 12,
+            // "icon": "download.svg",
+            // "iconSize": 26,
+            // "bobDuration": 1200,
+            // "bobTravel": 4,
+            // "titleSize": 15,
+            // "captionSize": 12,
+            // "text": "Drop to keep it",
+            // "caption": "Kept in %1",
+            // "leaveDelay": 150,
+            // "mutedOpacity": 0.6,
+        },
+        "tabs": {
+            // "gap": 8,
+            // "drop": 8,
+            // "height": 34,
+            // "padding": 4,
+            // "itemWidth": 40,
+            // "iconSize": 16,
+            // "selectedOpacity": 0.16,
+            // "idleOpacity": 0.55,
+            // "playerIcon": "music-note.svg",
+            // "shelfIcon": "shelf.svg",
+            // "recent": 60,
+            // "itemPadding": 12,
+            // "labelGap": 6,
+            // "labelSize": 13,
+            // "playerLabel": "Music",
+            // "shelfLabel": "Shelf",
+            // "resize": 360,
+            // "labelFade": 240,
+            // "labelDelay": 140,
+        },
+        // "expand": {
+        //     "response": 0.55,
+        //     "dampingFraction": 0.84
+        // },
+        // "shrink": {
+        //     "response": 0.42,
+        //     "dampingFraction": 0.88
+        // },
+        "transition": {
+            // "fadeIn": 300,
+            // "fadeInOpacity": 0.4,
+            // "contentStart": 0.75,
+            // "fadeInStart": 0.6,
+            // "fadeOut": 280,
+            // "handoff": 0.1,
+            // "outScale": 0.92,
+            // "outFit": 0.25,
+            // "maxScale": 1.06,
+            // "minScale": 0,
+            // "blur": 1.0,
+            // "blurMax": 48,
+            // "blurOutCurve": 1.0,
+            // "pop": {
+            //     "from": 0.9,
+            //     "response": 0.5,
+            //     "dampingFraction": 0.62
+            // },
+        },
+    },
+    "motion": {
+        // "colorFade": 300,
+        // "hoverFade": 160,
+        // "pressScale": 0.92,
+        // "pressDuration": 140,
+        // "settleDuration": 180,
+    },
+    "activity": {
+        // "edge": 16,
+        // "inset": 5,
+        // "spacing": 10,
+        // "tallHeight": 60,
+        // "titleSize": 15,
+        // "captionSize": 12,
+        // "lineSpacing": 0,
+        // "glyphSize": 16,
+        // "badgeOpacity": 0.2,
+        // "badgeHoverOpacity": 0.3,
+        "badgeLabel": {
+            // "size": 12,
+            // "gap": 4,
+            // "padding": 7,
+        },
+    },
+    "panel": {
+        // "width": 320,
+        // "padding": 10,
+        // "nameSize": 16,
+        // "visibleRows": 7,
+        // "gap": 6,
+        // "margin": 8,
+        // "expandIcon": "expand-more.svg",
+        // "edgeWidth": 1,
+        // "edgeOpacity": 0.1,
+        "roll": {
+            // "duration": 360,
+            // "travel": 0.4,
+        },
+        // "listGap": 4,
+        "list": {
+            // "scrollFade": 16,
+            // "scrollDuration": 260,
+            // "headerHeight": 24,
+            // "sectionGap": 6,
+            // "rowHeight": 34,
+            // "rowPadding": 10,
+            // "selectedOpacity": 0.1,
+            // "highlight": {
+            //     "response": 0.42,
+            //     "dampingFraction": 0.84
+            // },
+            // "iconSize": 18,
+            // "statusSize": 12,
+            // "trailingGap": 6,
+            // "checkIcon": "check.svg",
+            // "checkSize": 18,
+        },
+        "header": {
+            // "height": 36,
+            // "titleSize": 15,
+            // "titleWeight": 700,
+        },
+        "switch": {
+            // "width": 38,
+            // "height": 22,
+            // "inset": 2,
+            // "offOpacity": 0.18,
+            // "knobColor": "#ffffff",
+            // "spring": {
+            //     "response": 0.35,
+            //     "dampingFraction": 0.82
+            // },
+        },
+        "appear": {
+            // "fadeIn": 220,
+            // "fadeOut": 180,
+        },
+        "menu": {
+            // "width": 240,
+            // "rowHeight": 30,
+            // "iconSize": 16,
+            // "iconGap": 10,
+            // "titleHeight": 30,
+            // "subtitleHeight": 18,
+            // "subtitleSize": 12,
+            // "headerGap": 6,
+            // "separatorHeight": 9,
+            // "separatorWidth": 1,
+            // "separatorOpacity": 0.12,
+            // "disabledOpacity": 0.4,
+            // "confirmText": "Click again to %1",
+            // "confirmTimeout": 3000,
+        },
     },
     "battery": {
-        "gauge": {
-            "ticks": {
-                // "count": 21,
-                // "majorEvery": 5,
-            },
-            "number": {
-                // "unitGap": 1,
-            },
-            "fullIn": {
-                // "text": "Full in %1",
-                // "leftText": "%1 left",
-                // "hoursFormat": "%1h %2m",
-                // "minutesFormat": "%1m",
-            },
-            "saver": {
-                // "icon": "eco-mode.svg",
-                // "text": "Power saver",
-            },
-        },
         "launcher": {
             // "title": "Battery",
             // "subtitle": "Charge level and power mode",
             // "keywords": "power energy charge eco performance saver",
             // "icon": "battery.svg",
         },
-        // "transition": {
-        //     "fadeInStart": 0.35,
-        //     "fadeOut": 280,
-        //     "minScale": 0.8
-        // },
+        // "title": "Battery",
+        // "fullText": "Fully charged",
+        // "fullInText": "Full in %1",
+        // "leftText": "%1 left",
+        // "hoursFormat": "%1h %2m",
+        // "minutesFormat": "%1m",
+        // "modesTitle": "Power mode",
+        // "estimateHeight": 20,
     },
     "wifi": {
-        "hero": {
-            // "offText": "Tap to turn on",
-            // "pillText": "Networks · %1",
-            "glyph": {
-                // "scale": 4.5,
-                // "dotRadius": 2.2,
-                // "thickness": 3.0,
-                // "innerRadius": 9.9,
-                // "outerRadius": 15.75,
-                // "centerDrop": 3.2,
-                // "innerSpan": 73,
-                // "outerSpan": 78,
-            },
-        },
         // "tileOpacity": 0.12,
         // "lockIcon": "lock.svg",
         // "lockSize": 13,
@@ -418,13 +577,13 @@
         // "cancelIcon": "close.svg",
         // "cancelInset": 5,
         // "cancelGlyphSize": 12,
-        // "notConnectedText": "Not connected",
         // "savedTitle": "Saved networks",
         // "otherTitle": "Other networks",
         // "searchingText": "Searching…",
         // "connectingText": "Connecting…",
         // "failedText": "Couldn't connect",
         // "passwordPlaceholder": "Password for %1",
+        // "title": "Wi-Fi",
         "launcher": {
             // "title": "Wi-Fi",
             // "subtitle": "Wireless network",
@@ -433,17 +592,6 @@
         },
     },
     "bluetooth": {
-        "hero": {
-            // "offText": "Tap to turn on",
-            // "pillText": "Devices · %1",
-            "glyph": {
-                // "scale": 4.2,
-                // "thickness": 2.0,
-                // "stemHalf": 8.0,
-                // "chevron": 4.0,
-                // "arm": 5.6,
-            },
-        },
         "deviceIcons": {
             // "headphones": "headphone.svg",
             // "speaker": "speaker.svg",
@@ -456,9 +604,6 @@
         },
         // "clickDisconnects": true,
         // "attemptTimeout": 20000,
-        // "unavailableText": "No Bluetooth adapter",
-        // "notConnectedText": "Not connected",
-        // "manyConnectedText": "%1 and %2 more",
         // "savedTitle": "My devices",
         // "otherTitle": "Other devices",
         // "searchingText": "Searching…",
@@ -467,6 +612,7 @@
         // "disconnectingText": "Disconnecting…",
         // "failedText": "Couldn't connect",
         // "batteryFormat": "%1 %",
+        // "title": "Bluetooth",
         "launcher": {
             // "title": "Bluetooth",
             // "subtitle": "Devices and pairing",
@@ -476,35 +622,31 @@
     },
     "time": {
         // "accent": "#ff9f0a",
-        // "weekHeight": 46,
-        "ticks": {
-            // "count": 25,
-            // "majorEvery": 6,
-        },
         // "followSystemClock": true,
         // "hour24": true,
-        // "amPmFormat": "AP",
-        // "secondsFormat": "ss",
-        // "secondsGap": 4,
-        // "dateFormat": "MMMM yyyy",
         // "showWeekNumber": false,
-        // "weekNumberFormat": " · Week %1",
         // "weekStart": 1,
-        // "weekendDays": [
-        //     0,
-        //     6
-        // ],
         // "weekLetterFormat": "ddd",
         // "weekLetters": 1,
         // "weekLetterSize": 11,
-        // "dayCircle": 26,
+        // "dayCircle": 28,
         // "dayNumberSize": 13,
         "launcher": {
-            // "title": "Time",
-            // "subtitle": "Clock, date and week",
+            // "title": "Calendar",
+            // "subtitle": "This month, today circled",
             // "keywords": "clock date calendar week day hour",
             // "icon": "clock.svg",
         },
+        // "titleFormat": "MMMM yyyy",
+        // "weekColumn": 24,
+        // "weekdayHeight": 24,
+        // "rowGap": 4,
+        // "otherMonthOpacity": 0.5,
+        // "arrowSize": 24,
+        // "arrowIconSize": 18,
+        // "arrowGap": 2,
+        // "previousIcon": "chevron-left.svg",
+        // "nextIcon": "chevron-right.svg",
     },
     "quickSettings": {
         // "padding": 28,
@@ -583,6 +725,17 @@
         //     "fadeOut": 280,
         //     "minScale": 0.8
         // },
+        "outputs": {
+            // "title": "Sound output",
+            // "gapAbove": 10,
+            // "rowHeight": 30,
+            // "textSize": 13,
+            // "titleGap": 16,
+            // "chevronGap": 4,
+            // "chevronSize": 16,
+            // "nameMaxWidth": 0.6,
+            // "indent": 10,
+        },
     },
     "media": {
         // "padding": 26,
@@ -692,9 +845,16 @@
             // "position": "top",
             // "gap": 14,
         },
+        "file": {
+            // "padding": 14,
+            // "gap": 8,
+            // "iconSize": 64,
+            // "iconShare": 0.45,
+            // "nameSize": 12,
+        },
         // "move": {
-        //     "response": 0.45,
-        //     "dampingFraction": 0.82
+        //     "response": 0.5,
+        //     "dampingFraction": 0.86
         // },
         "bump": {
             // "distance": 0.12,
@@ -716,14 +876,18 @@
             //     "dampingFraction": 0.55
             // },
         },
+        "leave": {
+            // "duration": 220,
+            // "scale": 0.7,
+        },
         "backing": {
-            // "style": "lift",
+            // "style": "glow",
             "glow": {
-                // "opacity": 0.7,
-                // "sideOpacity": 0.5,
+                // "opacity": 0.45,
+                // "sideOpacity": 0.35,
                 // "blur": 48,
-                // "spread": 16,
-                // "brightness": 0.3,
+                // "spread": 12,
+                // "brightness": 0.15,
                 // "saturation": 0.2,
             },
             "lift": {
@@ -731,6 +895,22 @@
                 // "blur": 14,
                 // "spread": 1,
             },
+        },
+        "tilt": {
+            // "enabled": true,
+            // "max": 9,
+            // "depth": 520,
+            // "spring": {
+            //     "response": 0.35,
+            //     "dampingFraction": 0.82
+            // },
+        },
+        "shine": {
+            // "enabled": true,
+            // "opacity": 0.12,
+            // "radius": 1.6,
+            // "middle": 0.3,
+            // "fade": 220,
         },
         "mark": {
             // "icon": "check.svg",
@@ -748,16 +928,18 @@
             // "startDelay": 40,
         },
     },
-    "screenshots": {
-        // "extensions": [
-        //     "png",
-        //     "jpg",
-        //     "jpeg"
+    "shelf": {
+        // "folder": "~/Island",
+        // "keepScreenshots": true,
+        // "openCloses": false,
+        // "removeCommand": [
+        //     "gio",
+        //     "trash",
+        //     "{path}"
         // ],
-        // "copyCloses": false,
         // "revealCloses": true,
         // "dragOut": true,
-        // "emptyText": "No screenshots yet",
+        // "emptyText": "Drop files here",
         // "copyCommand": [
         //     "sh",
         //     "-c",
@@ -768,6 +950,15 @@
         "card": {
             // "minRatio": 0.75,
             // "maxRatio": 1.78,
+            // "iconRatio": 1.0,
+        },
+        // "width": 520,
+        // "padding": 18,
+        "remove": {
+            // "icon": "close.svg",
+            // "size": 24,
+            // "inset": 8,
+            // "glyphSize": 12,
         },
         "copied": {
             // "icon": "copy.svg",
@@ -780,11 +971,12 @@
             // "dateFormat": "dddd d MMMM",
             // "timeFormat": "HH:mm",
             // "timeFormat12h": "h:mm AP",
+            // "separator": "  ·  ",
         },
         "launcher": {
-            // "title": "Screenshots",
-            // "subtitle": "Copy or drag a recent screenshot",
-            // "keywords": "screenshot screen capture copy clipboard picture",
+            // "title": "Shelf",
+            // "subtitle": "Files and screenshots the notch holds",
+            // "keywords": "shelf files screenshots drop hold tray",
             // "icon": "screenshot-monitor.svg",
         },
     },
@@ -1037,8 +1229,8 @@
             // "opacity": 0.16,
             // "fade": 140,
             // "room": {
-            //     "response": 0.35,
-            //     "dampingFraction": 0.8
+            //     "response": 0.4,
+            //     "dampingFraction": 0.85
             // },
             // "pop": {
             //     "from": 0.6,
@@ -1085,7 +1277,7 @@
         // "dimmedOpacity": 0.35,
         // "hitMargin": 10,
         // "follow": {
-        //     "response": 0.25,
+        //     "response": 0.3,
         //     "dampingFraction": 0.9
         // },
         // "bumpStretch": 4,
@@ -1200,13 +1392,39 @@
     },
     "nowPlaying": {
         "enabled": true,
-        // "timeout": 3000,
-        // "quietGap": 60,
-        // "width": 240,
-        // "coverInset": 7.5,
+        // "linger": 300,
+        // "hideWhenFocused": true,
+        // "browsers": [
+        //     "firefox",
+        //     "zen",
+        //     "chromium",
+        //     "chrome",
+        //     "brave",
+        //     "vivaldi",
+        //     "librewolf",
+        //     "floorp",
+        //     "waterfox",
+        //     "epiphany",
+        //     "edge",
+        //     "opera"
+        // ],
+        // "musicSites": [
+        //     "YouTube Music",
+        //     "Spotify",
+        //     "SoundCloud",
+        //     "Deezer",
+        //     "Tidal",
+        //     "Apple Music",
+        //     "Bandcamp",
+        //     "Qobuz"
+        // ],
+        // "width": 140,
+        // "height": 32,
+        // "coverInset": 5,
         // "count": 4,
-        // "barHeight": 16,
+        // "barHeight": 14,
         // "noteScale": 0.6,
+        // "edge": 12,
         // "coverPopFrom": 0.4,
         // "coverPop": {
         //     "response": 0.45,
@@ -1214,35 +1432,35 @@
         // },
     },
     "notifications": {
-        // "width": 380,
-        // "padding": 14,
-        // "spacing": 12,
+        // "width": 344,
+        // "padding": 12,
+        // "spacing": 10,
         // "lineSpacing": 2,
-        // "iconSize": 42,
+        // "iconSize": 36,
+        // "gap": 10,
+        // "gapBelow": 10,
+        // "margin": 10,
+        // "pictureSize": 40,
+        // "glyphShare": 0.55,
         // "fallbackIcon": "notifications.svg",
         // "criticalIcon": "info.svg",
-        "appBadge": {
-            // "size": 18,
-            // "gap": 2,
-            // "overhang": 3,
-        },
+        // "screenshotIcon": "screenshot-monitor.svg",
+        // "edgeWidth": 1,
+        // "edgeOpacity": 0.1,
         // "showAppName": false,
-        // "appNameSize": 12,
         // "summarySize": 15,
         // "bodySize": 13,
         // "bodyWeight": 400,
-        // "bodyLines": 4,
-        // "ageAfter": 1,
-        // "minutesText": "%1m ago",
-        "appear": {
-            // "iconFrom": 0.6,
-            // "spring": {
-            //     "response": 0.45,
-            //     "dampingFraction": 0.62
-            // },
-            // "textDelay": 60,
-            // "textDuration": 260,
-            // "textRise": 6,
+        // "bodyLines": 6,
+        // "timeSize": 12,
+        // "bodyLinesCollapsed": 2,
+        // "appNameSize": 12,
+        // "summaryWeight": 650,
+        "age": {
+            // "nowText": "now",
+            // "minutesText": "%1m ago",
+            // "hoursText": "%1h ago",
+            // "dateFormat": "dd.MM",
         },
         // "maxActions": 3,
         // "actionHeight": 30,
@@ -1254,16 +1472,32 @@
         // "closeSize": 22,
         // "closeIconScale": 0.7,
         // "closeIcon": "close.svg",
+        // "closeBorder": 1,
         "enabled": true,
         // "timeout": 5000,
         // "respectAppTimeout": true,
         // "criticalTimeout": 0,
         // "showLowUrgency": true,
-        // "newestFirst": false,
         // "expandOnHover": true,
         // "clickDismisses": true,
-        // "swapFade": 160,
         // "dndAllowsCritical": true,
+        // "maxVisible": 3,
+        // "historyLimit": 50,
+        "swipe": {
+            // "distance": 40,
+            // "projection": 0.2,
+            // "velocityWindow": 100,
+            // "backSpeed": 150,
+            // "follow": 0.025,
+            // "minLeave": 110,
+            // "lock": 6,
+            // "spring": {
+            //     "response": 0.4,
+            //     "dampingFraction": 0.82
+            // },
+            // "wheel": 30,
+            // "scrollEnd": 120,
+        },
         "open": {
             // "focusApp": true,
             // "launchApp": true,
@@ -1314,6 +1548,38 @@
             //     "{id}"
             // ],
         },
+        // "arrive": {
+        //     "response": 0.55,
+        //     "dampingFraction": 0.86
+        // },
+        // "leaveDuration": 300,
+        // "moveDuration": 320,
+        // "hoverDuration": 260,
+        "shadow": {
+            // "blur": 24,
+            // "offset": 4,
+            // "opacity": 0.25,
+        },
+        "center": {
+            // "title": "Notifications",
+            // "clearText": "Clear all",
+            // "emptyText": "No notifications",
+            // "newText": "NEW",
+            // "oldText": "OLD",
+            // "headerHeight": 30,
+            // "titleSize": 15,
+            // "clearStagger": 40,
+            // "chipHeight": 24,
+            // "chipPadding": 12,
+            // "chipOpacity": 0.6,
+            // "chipSize": 11,
+            // "chipSpacing": 1,
+            // "fade": 240,
+            // "drop": 16,
+            // "overhang": 14,
+            // "gapAbove": 8,
+            // "bottomMargin": 12,
+        },
     },
     "screenshot": {
         "enabled": true,
@@ -1323,19 +1589,20 @@
         // ],
         // "folder": "~/Pictures/Screenshots",
         // "recent": 10,
-        // "height": 96,
-        // "maxWidth": 230,
         // "roundness": 0.1,
-        // "islandRoundness": 1.8,
-        // "paddingX": 36,
-        // "paddingY": 32,
-        // "hoverScale": 1.03,
-        "appear": {
-            // "from": 0.85,
-            // "spring": {
-            //     "response": 0.4,
-            //     "dampingFraction": 0.7
-            // },
+        // "title": "Screenshot",
+        // "countText": "%1 screenshots",
+        // "pileLimit": 20,
+        "pile": {
+            // "height": 64,
+            // "minRatio": 0.75,
+            // "maxRatio": 1.78,
+            // "shown": 3,
+            // "offset": 12,
+            // "rotation": 6,
+            // "shrink": 0.06,
+            // "darken": 0.15,
+            // "border": 2,
         },
     },
     "goodbye": {

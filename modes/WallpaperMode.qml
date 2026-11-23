@@ -6,8 +6,9 @@ import "../services"
 import "../island"
 import "../widgets"
 
-// Wallpaper panel: the pictures of the wallpaper folder (Sys.wallpapers) in a PictureCarousel (cards in
-// the screen's proportions; its look and motion are `carousel.*`, shared with the screenshots panel).
+// The wallpaper picker, grown out of the notch (the logo's menu, the launcher, IPC): the pictures of the
+// wallpaper folder (Sys.wallpapers) in a PictureCarousel (cards in the screen's proportions; its look and
+// motion are `carousel.*`, shared with the shelf).
 // The wallpaper in use wears the check badge; the selected picture's name sits above the cards, or under
 // them (carousel.name.position), and rolls when it changes.
 // Left / Right (or the wheel, a drag, a click on a side card) pick; Enter (or a click on the front card)
@@ -112,7 +113,7 @@ IslandMode {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                color: Config.colors.secondary
+                color: palette.placeholderText
                 text: mode.look.emptyText
             }
         }

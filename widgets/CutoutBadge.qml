@@ -23,7 +23,7 @@ Item {
 
     property bool shown: false
     property string icon
-    property color color: Config.colors.text
+    property color color: palette.windowText
     property real size
     property real overhangX       // past the content's right edge
     property real overhangY       // below the content's bottom (ignored when `centered`)
@@ -37,9 +37,9 @@ Item {
 
     // appearing: the glyph (and its cut, together) fades in over fadeDuration and springs up from popFrom
     // with a little bounce (popSpring); leaving: fades out, shrinking back
-    property real fadeDuration: Config.idle.battery.badge.fade
-    property real popFrom: Config.idle.battery.badge.popFrom
-    property var popSpring: Config.idle.battery.badge.pop
+    property real fadeDuration: Config.bar.battery.badge.fade
+    property real popFrom: Config.bar.battery.badge.popFrom
+    property var popSpring: Config.bar.battery.badge.pop
     property real level: shown ? 1 : 0
     Behavior on level {
         NumberAnimation {
@@ -131,7 +131,7 @@ Item {
                     height: mark.height
                     scale: badge.glyphScale
                     name: badge.icon
-                    color: Config.colors.text
+                    color: palette.windowText
                 }
             }
         }

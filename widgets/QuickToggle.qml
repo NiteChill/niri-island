@@ -35,7 +35,7 @@ Item {
         glyphSize: toggle.cfg.glyphSize
         icon: toggle.icon
         solid: toggle.on
-        tint: toggle.on ? toggle.tint : Config.colors.text
+        tint: toggle.on ? toggle.tint : palette.windowText
         clickable: toggle.available
         onClicked: toggle.toggled()
     }
@@ -48,7 +48,7 @@ Item {
         // often a name (the network, the device): cut in the middle so its end stays
         elide: Text.ElideMiddle
         font.pixelSize: toggle.cfg.wordSize
-        color: toggle.opens && wordHover.hovered ? Config.colors.text : Config.colors.secondary
+        color: toggle.opens && wordHover.hovered ? palette.windowText : palette.placeholderText
         Behavior on color {
             ColorAnimation {
                 duration: Config.motion.hoverFade

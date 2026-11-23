@@ -33,15 +33,24 @@ Item {
     }
 
     // ---- keyboard ----
-    // the lit row (keyboard or pointer); -1 = none
+    // the lit row (keyboard or pointer); -1 = none. Lit by the keyboard, it stays; lit by the pointer, it
+    // goes when the pointer leaves the row (fading out where it is: shownRow keeps its place)
     property int keyRow: -1
+    property bool _byKey: false
+    property int shownRow: 0
+    onKeyRowChanged: {
+        if (keyRow >= 0)
+            shownRow = keyRow;
+    }
     function openFromKeys() {
         if (_open)
             return;
+        _byKey = true;
         keyRow = current;
         _pressed();
     }
     function moveKey(step) {
+        _byKey = true;
         keyRow = Math.max(0, Math.min(model.length - 1, (keyRow < 0 ? current : keyRow) + step));
     }
     function pickKey() {
@@ -49,17 +58,19 @@ Item {
             picked(keyRow);
         close();
     }
-    on_OpenChanged: if (!_open)
-        keyRow = -1
+    on_OpenChanged: if (!_open) {
+        keyRow = -1;
+        _byKey = false;
+    }
 
     readonly property var cfg: Config.quickSettings.power.menu
     readonly property var toggle: Config.quickSettings.toggle
     readonly property var choice: model.length > current ? model[current] : null
-    readonly property color tint: choice ? choice.tint : Config.colors.text
+    readonly property color tint: choice ? choice.tint : palette.windowText
     // solid in the choice's color; soft when that color is plain text (balanced: nothing special on)
-    readonly property bool solid: !Qt.colorEqual(tint, Config.colors.text)
+    readonly property bool solid: !Qt.colorEqual(tint, palette.windowText)
     // the open menu's surface: the soft badge's color, opaque (the current choice's tint over the island)
-    readonly property color surface: Qt.tint(Config.island.color, Qt.alpha(tint, Config.activity.badgeOpacity))
+    readonly property color surface: Qt.tint(palette.window, Qt.alpha(tint, Config.activity.badgeOpacity))
 
     // ---- sizes ----
     readonly property real badgeSize: toggle.badgeSize
@@ -192,7 +203,7 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         font.pixelSize: menu.toggle.wordSize
-        color: Config.colors.secondary
+        color: palette.placeholderText
         opacity: menu.contentOpacity
         text: menu.choice ? menu.choice.text : ""
     }
@@ -215,13 +226,13 @@ Item {
         // Bluetooth lists' look, opacity and spring: panel.list); it fades in where it is, then slides
         Rectangle {
             id: lit
-            readonly property int row: Math.max(0, menu.keyRow)
+            readonly property int row: menu.shownRow
             x: menu.menuX + menu.cfg.inset - parent.x
             y: menu.menuY + menu.cfg.inset - parent.y + row * (menu.cfg.rowHeight + menu.cfg.rowGap)
             width: menu.menuWidth - 2 * menu.cfg.inset
             height: menu.cfg.rowHeight
             radius: menu.rowCorner
-            color: Config.colors.text
+            color: palette.windowText
             opacity: menu.keyRow >= 0 && menu._open ? Config.panel.list.selectedOpacity : 0
             visible: opacity > 0
             Behavior on opacity {
@@ -307,13 +318,26 @@ Item {
                         width: Config.panel.list.checkSize
                         height: Config.panel.list.checkSize
                         name: Config.panel.list.checkIcon
-                        color: Config.colors.text
+                        color: palette.windowText
                     }
                     HoverHandler {
                         id: rowHover
                         cursorShape: Qt.PointingHandCursor
-                        onHoveredChanged: if (hovered)
-                            menu.keyRow = row.index
+                        // only a real move lights the row (the menu unfolding under a still pointer, or a
+                        // still pointer while the keys move, leaves the keys in charge)
+                        property point lastScene: Qt.point(-1, -1)
+                        onPointChanged: {
+                            const s = point.scenePosition;
+                            if (!hovered || (s.x === lastScene.x && s.y === lastScene.y))
+                                return;
+                            lastScene = s;
+                            menu._byKey = false;
+                            menu.keyRow = row.index;
+                        }
+                        onHoveredChanged: {
+                            if (!hovered && !menu._byKey && menu.keyRow === row.index)
+                                menu.keyRow = -1;
+                        }
                     }
                     // a MouseArea, not a TapHandler: it takes the click, so the switch under the menu (the
                     // mic) doesn't get it too (a TapHandler only listens, the tap went through)

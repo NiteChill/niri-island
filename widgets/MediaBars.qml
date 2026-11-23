@@ -8,7 +8,7 @@ import "../services"
 // plays (Sys.mediaLevels, from cava: bass at the left, treble at the right) and settle low when it's paused.
 // Without cava they dance on their own. They only move while `running`: the owner sets it to "playing and on
 // screen"; each running MediaBars counts itself in Sys.mediaLevelUsers, so cava runs only while one is shown.
-// Settings: media.bars (the panel), idle.media (the idle island).
+// Settings: media.bars (the media controls), nowPlaying.* (the music in the notch).
 Item {
     id: bars
 

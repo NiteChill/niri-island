@@ -4,22 +4,20 @@ import "../services"
 import "../island"
 import "../widgets"
 
-// Island mode (an activity, put up by Activity): music started, like the iPhone's compact "now playing":
-// the cover at the far left (a rounded tile with room around it; it pops in), the bars at the far
-// right in the cover's color, nothing in between. One line (island.restHeight), nowPlaying.width wide.
-// Activity shows it only when music starts after a quiet spell (nowPlaying.quietGap: the next song of a
-// playlist, or a resume after a short pause, doesn't). Clicking it opens the media panel.
+// The notch while music plays, like the iPhone's compact "now playing": the cover at the left, the bars
+// at the right in the cover's color, nothing in between (nowPlaying.width x height: a little bigger than
+// the resting notch, which is calmer). It's the notch's base layer (Activity): it stays the whole
+// time music plays, every alert covers it, then it comes back; paused, it stays nowPlaying.linger seconds.
+// Clicking it opens the player (Activity.openNotch).
 IslandMode {
     id: mode
 
     readonly property var layout: Config.nowPlaying
-    readonly property real restHeight: island ? island.restHeight : 0
-    // the cover sits nowPlaying.coverInset from the edges (more than a badge's activity.inset: a picture
-    // touching the island's rim looked crammed)
-    readonly property real coverSize: restHeight - 2 * layout.coverInset
+    readonly property real coverSize: layout.height - 2 * layout.coverInset
 
+    belowMinimum: true
     implicitWidth: layout.width
-    implicitHeight: restHeight
+    implicitHeight: layout.height
 
     // the cover pops in once on screen (appeared), from small
     property real coverPop: 1
@@ -40,35 +38,28 @@ IslandMode {
     }
     onAppeared: coverPop = 1
 
+    HoverHandler {
+        cursorShape: Qt.PointingHandCursor
+    }
     TapHandler {
-        onTapped: {
-            Activity.dismiss("nowPlaying");
-            mode.requestState("media");
-        }
+        onTapped: Activity.openNotch()
     }
 
-    // centred: the island is never narrower than island.minWidth
-    Item {
-        x: (mode.width - mode.implicitWidth) / 2
-        width: mode.implicitWidth
-        height: mode.implicitHeight
-
-        MediaCover {
-            x: mode.layout.coverInset
-            anchors.verticalCenter: parent.verticalCenter
-            width: mode.coverSize
-            height: mode.coverSize
-            iconSize: mode.coverSize * mode.layout.noteScale
-            scale: mode.coverPop
-        }
-        MediaBars {
-            anchors.right: parent.right
-            anchors.rightMargin: Config.activity.edge
-            anchors.verticalCenter: parent.verticalCenter
-            count: mode.layout.count
-            barHeight: mode.layout.barHeight
-            // moving once on screen, and still while it animates out (stopping then read as a jolt)
-            running: (mode.active ? mode.hasAppeared : mode.onScreen) && Sys.media.playing
-        }
+    MediaCover {
+        x: mode.layout.coverInset
+        anchors.verticalCenter: parent.verticalCenter
+        width: mode.coverSize
+        height: mode.coverSize
+        iconSize: mode.coverSize * mode.layout.noteScale
+        scale: mode.coverPop
+    }
+    MediaBars {
+        anchors.right: parent.right
+        anchors.rightMargin: mode.layout.edge
+        anchors.verticalCenter: parent.verticalCenter
+        count: mode.layout.count
+        barHeight: mode.layout.barHeight
+        // moving once on screen, and still while it animates out (stopping then read as a jolt)
+        running: (mode.active ? mode.hasAppeared : mode.onScreen) && Sys.media.playing
     }
 }

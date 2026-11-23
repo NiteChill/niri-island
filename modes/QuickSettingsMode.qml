@@ -7,18 +7,18 @@ import "../services"
 import "../island"
 import "../widgets"
 
-// Quick settings panel, in the panels' language (click the empty middle of the idle island, Mod+S =
-// `qs ipc call island toggle quickSettings`, or the launcher). Nothing boxed: things float on the island.
+// Quick settings dropdown (the bar's quick settings icon, Mod+S = `qs ipc call island toggle quickSettings`,
+// or the launcher):
 //  - one centred row of round switches (QuickToggle: the activity badges' look, solid in the accent when on,
 //    one grey word under each, the state): Wi-Fi, Bluetooth, Focus (do not disturb), microphone (solid blue
-//    = live, crossed out when muted), power mode (MenuBadge: the badge morphs into a dropdown of saver / balanced / performance,
-//    down and to the left inside the panel, the rest of the panel blurred behind it; Escape or a click
-//    elsewhere puts it away). The word under Wi-Fi / Bluetooth opens
-//    their panel
-//  - brightness and volume as the pop-ups' rows (widgets/LevelRow), the icon at the left (the speaker mutes), the value in grey at the right. Brightness only with a
-//    backlight.
-// Fully usable from the keyboard (see "keyboard" below). Calm mode (qs ipc call island calm) may become a sixth switch. Settings: quickSettings.* (its own padding: more air than
-// the other panels around a row of small things), panel.* (width).
+//    = live, crossed out when muted), power mode (MenuBadge: the badge morphs into a menu of saver /
+//    balanced / performance, the rest of the dropdown blurred behind it; Escape or a click elsewhere puts
+//    it away). The word under Wi-Fi / Bluetooth opens their dropdown
+//  - brightness and volume as the pop-ups' rows (widgets/LevelRow), the icon at the left (the speaker
+//    mutes), the value in grey at the right. Brightness only with a backlight.
+//  - the sound output: where the sound goes, a click unfolds the outputs to pick another (Sys.audioOutputs)
+// Fully usable from the keyboard (see "keyboard" below). Settings: quickSettings.* (its own padding: more
+// air than the other dropdowns around a row of small things), panel.* (width).
 IslandMode {
     id: mode
 
@@ -43,7 +43,14 @@ IslandMode {
             return;
         power.close();
         keyShown = false;
+        outputsOpen = false;
     }
+
+    // ---- the sound output, under the volume: a click unfolds the outputs ----
+    property bool outputsOpen: false
+    readonly property var outputs: Sys.audioOutputs
+    readonly property bool outputsShown: outputs.length > 0
+    readonly property real outputsHeight: !outputsShown ? 0 : layout.outputs.gapAbove + layout.outputs.rowHeight + (outputsOpen ? outputs.length * layout.outputs.rowHeight : 0)
 
     // ---- keyboard: everything works without the mouse ----
     // One spot has the focus: a switch's tile (badge + word) on the top row, or the brightness / volume row,
@@ -55,9 +62,16 @@ IslandMode {
     //   Tab / Shift+Tab: every spot in order
     //   Space: toggle the switch (the volume row: mute); Enter: the same, except Wi-Fi / Bluetooth open
     //   their panel and the power switch opens its menu
+    //   The sound output: its line is a spot (Space / Enter unfold the outputs, the focus going to the one in
+    //   use; again on the line folds them), then each output while unfolded (Space / Enter pick it)
     //   In the power menu: Up / Down move, Space / Enter pick, Escape closes it
     readonly property var switchSpots: ["wifi", "bluetooth", "focus", "mic", "power"]
-    readonly property var spots: switchSpots.concat(Sys.brightness.ready ? ["brightness", "volume"] : ["volume"])
+    readonly property var levelSpots: Sys.brightness.ready ? ["brightness", "volume"] : ["volume"]
+    readonly property var spots: switchSpots.concat(levelSpots, outputsShown ? ["output"] : [], outputsOpen ? outputs.map((o, i) => "output:" + i) : [])
+    readonly property int outputSpot: switchSpots.length + levelSpots.length
+    // folding the outputs with the focus on one of them puts it back on the line
+    onOutputsOpenChanged: if (!outputsOpen && keySpot > outputSpot)
+        keySpot = outputSpot
     property int keySpot: 0
     property bool keyShown: false
     property int lastSwitch: 0
@@ -77,7 +91,15 @@ IslandMode {
     }
     function use(enter) {
         const name = spot;
-        if (name === "power")
+        if (name === "output") {
+            outputsOpen = !outputsOpen;
+            if (outputsOpen)
+                goTo(outputSpot + 1 + Math.max(0, outputs.findIndex(o => o.active)));
+        } else if (name.startsWith("output:")) {
+            const o = outputs[Number(name.slice(7))];
+            if (o)
+                Sys.setAudioOutput(o.name);
+        } else if (name === "power")
             power.openFromKeys();
         else if (name === "volume")
             Sys.toggleMute();
@@ -123,7 +145,7 @@ IslandMode {
             const dir = k === Qt.Key_Left ? -1 : 1;
             if (onSwitch)
                 goTo(Math.max(0, Math.min(switchSpots.length - 1, keySpot + dir)));
-            else
+            else if (keySpot < outputSpot)
                 nudge(spot, dir);
         } else if (k === Qt.Key_Down)
             goTo(onSwitch ? switchSpots.length : keySpot + 1);
@@ -149,7 +171,7 @@ IslandMode {
     // mid-opening (a visible jolt)
     readonly property int meterCount: Sys.brightness.ready ? 2 : 1
     readonly property real rowHeight: Math.max(layout.levels.iconSize, Config.slider.height)
-    implicitHeight: 2 * layout.padding + power.implicitHeight + layout.levels.gapAbove + meterCount * rowHeight + (meterCount - 1) * layout.levels.rowGap
+    implicitHeight: 2 * layout.padding + power.implicitHeight + layout.levels.gapAbove + meterCount * rowHeight + (meterCount - 1) * layout.levels.rowGap + outputsHeight
 
     // the power modes, in Sys.battery.profile's names, in the order shown
     readonly property var profiles: ["powerSaver", "balanced", "performance"]
@@ -162,9 +184,14 @@ IslandMode {
         // a tile shows no edge of its own, so its highlight can reach a bit past its cell (tileOverhang)
         if (i < switchSpots.length)
             return Qt.rect(column.x + i * cellWidth - layout.focus.tileOverhang, column.y - pad, cellWidth + 2 * layout.focus.tileOverhang, power.implicitHeight + 2 * pad + layout.focus.tileBottom);
-        const row = i - switchSpots.length;
-        const top = column.y + power.implicitHeight + layout.levels.gapAbove + row * (rowHeight + layout.levels.rowGap);
-        return Qt.rect(column.x - pad, top - pad, contentWidth + 2 * pad, rowHeight + 2 * pad);
+        const levelsTop = column.y + power.implicitHeight + layout.levels.gapAbove;
+        if (i < outputSpot) {
+            const top = levelsTop + (i - switchSpots.length) * (rowHeight + layout.levels.rowGap);
+            return Qt.rect(column.x - pad, top - pad, contentWidth + 2 * pad, rowHeight + 2 * pad);
+        }
+        // the output line and its rows: exactly the rows' own hover highlight
+        const outTop = levelsTop + meterCount * rowHeight + (meterCount - 1) * layout.levels.rowGap + layout.outputs.gapAbove;
+        return Qt.rect(column.x, outTop + (i - outputSpot) * layout.outputs.rowHeight, contentWidth, layout.outputs.rowHeight);
     }
     Rectangle {
         id: focusWash
@@ -173,7 +200,7 @@ IslandMode {
         width: mode.spotRect.width
         height: mode.spotRect.height
         radius: Config.corner("row", height)
-        color: Config.colors.text
+        color: palette.windowText
         opacity: mode.keyShown && !power.open ? Config.panel.list.selectedOpacity : 0
         visible: opacity > 0
         Behavior on opacity {
@@ -297,7 +324,7 @@ IslandMode {
                 iconSize: mode.layout.levels.iconSize
                 gap: mode.layout.levels.gap
                 valueSize: mode.layout.levels.valueSize
-                valueColor: Config.colors.secondary
+                valueColor: palette.placeholderText
             }
             LevelRow {
                 kind: "volume"
@@ -308,7 +335,118 @@ IslandMode {
                 iconSize: mode.layout.levels.iconSize
                 gap: mode.layout.levels.gap
                 valueSize: mode.layout.levels.valueSize
-                valueColor: Config.colors.secondary
+                valueColor: palette.placeholderText
+            }
+        }
+
+        // where the sound goes; unfolds into the outputs
+        Item {
+            id: outputBox
+            visible: mode.outputsShown
+            width: parent.width
+            height: mode.outputsHeight
+            clip: true
+            Behavior on height {
+                SpringAnimation {
+                    spring: Config.spring(Config.island.expand).spring
+                    damping: Config.spring(Config.island.expand).damping
+                    epsilon: 0.5
+                }
+            }
+            readonly property var current: mode.outputs.find(o => o.active) || null
+            Item {
+                id: outputLine
+                y: mode.layout.outputs.gapAbove
+                width: parent.width
+                height: mode.layout.outputs.rowHeight
+                StyledText {
+                    id: outputTitle
+                    anchors.verticalCenter: parent.verticalCenter
+                    font.pixelSize: mode.layout.outputs.textSize
+                    color: palette.placeholderText
+                    text: mode.layout.outputs.title
+                }
+                Row {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: mode.layout.outputs.chevronGap
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        // what the title and the arrow leave (and at most nameMaxWidth of the line)
+                        width: Math.min(implicitWidth, outputLine.width * mode.layout.outputs.nameMaxWidth, outputLine.width - outputTitle.implicitWidth - 2 * mode.layout.outputs.chevronGap - mode.layout.outputs.chevronSize - mode.layout.outputs.titleGap)
+                        elide: Text.ElideMiddle
+                        font.pixelSize: mode.layout.outputs.textSize
+                        text: outputBox.current ? outputBox.current.description : ""
+                    }
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: mode.layout.outputs.chevronSize
+                        height: width
+                        name: Config.panel.expandIcon
+                        color: palette.placeholderText
+                        rotation: mode.outputsOpen ? 180 : 0
+                        Behavior on rotation {
+                            NumberAnimation {
+                                duration: Config.motion.colorFade
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+                }
+                HoverHandler {
+                    cursorShape: Qt.PointingHandCursor
+                }
+                TapHandler {
+                    onTapped: mode.outputsOpen = !mode.outputsOpen
+                }
+            }
+            Repeater {
+                model: mode.outputsOpen ? mode.outputs : []
+                delegate: Item {
+                    id: output
+                    required property int index
+                    required property var modelData
+                    y: outputLine.y + outputLine.height + index * mode.layout.outputs.rowHeight
+                    width: outputBox.width
+                    height: mode.layout.outputs.rowHeight
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Config.corner("row", height)
+                        color: palette.windowText
+                        opacity: outputHover.hovered && !mode.keyShown ? Config.panel.list.selectedOpacity : 0
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: Config.motion.hoverFade
+                            }
+                        }
+                    }
+                    StyledText {
+                        x: mode.layout.outputs.indent
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 2 * mode.layout.outputs.indent - Config.panel.list.checkSize
+                        elide: Text.ElideMiddle
+                        font.pixelSize: mode.layout.outputs.textSize
+                        text: output.modelData.description
+                    }
+                    Icon {
+                        visible: output.modelData.active
+                        anchors.right: parent.right
+                        anchors.rightMargin: mode.layout.outputs.indent
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Config.panel.list.checkSize
+                        height: width
+                        name: Config.panel.list.checkIcon
+                        color: Config.colors.accent
+                    }
+                    MovedHover {
+                        id: outputHover
+                        cursorShape: Qt.PointingHandCursor
+                        onMoved: mode.keyShown = false
+                    }
+                    TapHandler {
+                        onTapped: Sys.setAudioOutput(output.modelData.name)
+                    }
+                }
             }
         }
     }
@@ -351,7 +489,7 @@ IslandMode {
             {
                 "icon": mode.layout.power.balancedIcon,
                 "text": mode.layout.power.balancedText,
-                "tint": Config.colors.balanced
+                "tint": palette.windowText
             },
             {
                 "icon": mode.layout.power.performanceIcon,

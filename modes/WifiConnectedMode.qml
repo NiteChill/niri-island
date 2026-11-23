@@ -66,16 +66,16 @@ IslandMode {
 
             Icon {
                 anchors.fill: parent
-                name: Config.idle.wifi.icons[Config.idle.wifi.icons.length - 1]
+                name: Config.bar.wifi.icons[Config.bar.wifi.icons.length - 1]
                 color: Config.colors.accent
-                opacity: Config.idle.overlayOpacity
+                opacity: Config.bar.overlayOpacity
             }
             Repeater {
-                model: Config.idle.wifi.icons.length
+                model: Config.bar.wifi.icons.length
                 delegate: Icon {
                     required property int index
                     anchors.fill: parent
-                    name: Config.idle.wifi.icons[index]
+                    name: Config.bar.wifi.icons[index]
                     color: Config.colors.accent
                     // only the highest lit bar's icon shows (each icon already contains the bars below it)
                     opacity: index === Math.min(mode.lit, mode.bars) - 1 ? 1 : 0

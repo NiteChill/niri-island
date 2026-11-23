@@ -6,7 +6,7 @@ import QtQuick.Shapes
 
 import "../services"
 
-// A carousel of pictures (the wallpaper and screenshots panels; look in `carousel.*`): the selected
+// A carousel of pictures (the wallpaper picker and the shelf, in the notch; look in `carousel.*`): the selected
 // card in front, carousel.side.count neighbours behind it on each side (smaller, turned, darker), the
 // next ones fading in from further out as the row slides (one spring, carousel.move). Left / Right (the
 // panel's keys call step()), the wheel, a drag or a click on a side card pick; a click on the front card
@@ -30,6 +30,11 @@ Item {
 
     property var pictures: []
     readonly property int count: pictures.length
+    // what each card shows, when it isn't the file itself (the shelf: a PDF's thumbnail); "" = no picture:
+    // the card shows `icons` (the file type's icon) and `names` instead. Empty lists = the files are pictures.
+    property var previews: []
+    property var icons: []
+    property var names: []
     property string markedPath: ""
     // what the marked picture wears: a glyph (the wallpaper in use: a check) and an optional word (the
     // screenshot just copied: a copy glyph + "Copied")
@@ -48,6 +53,15 @@ Item {
     signal picked(int index)      // the user moved the selection
     signal activated(int index)   // a click on the front card
     signal secondaryActivated(int index)   // a right click on the front card
+    // an × on the front card's top-left corner (the shelf: off it); "" = none. It's part of the card: it
+    // moves, turns and fades with it as the row slides
+    property string removeIcon: ""
+    property real removeSize: 0
+    property real removeInset: 0
+    property real removeGlyph: 0
+    signal removeRequested(int index)
+    // a picture on its way out (the shelf's ×): its card shrinks and fades over look.leave.duration
+    property string leavingPath: ""
 
     // ---- sizes: the front card takes what the side cards leave ----
     readonly property int side: look.side.count
@@ -133,10 +147,20 @@ Item {
         else
             pick(selected + d);
     }
-    // the list changed: find the picture `path` again ("" or gone: stay near the same place), jumping
+    // the list changed: find the picture `path` again, jumping. Gone (removed): the selection stays at
+    // the same place, and the card that takes it slides in from where it was (the next one from the
+    // right; the last one removed: the one before, from the left)
     function relocate(path) {
         const i = path ? pictures.indexOf(path) : -1;
-        select(i >= 0 ? i : Math.min(selected, count - 1), false);
+        if (i >= 0 || count === 0) {
+            select(Math.max(0, i), false);
+            return;
+        }
+        const k = Math.min(selected, count - 1);
+        springy = false;
+        pos = selected < count ? k - 1 : selected;
+        springy = true;
+        select(k, true);
     }
 
     // ---- bump (an end reached) ----
@@ -205,8 +229,35 @@ Item {
         return best;
     }
 
+    // the point is on the front card's × (its own handler takes it: a parent TapHandler also fires for
+    // taps on its children, which opened the file too)
+    function onRemove(px, py) {
+        if (removeIcon === "" || count === 0)
+            return false;
+        const x0 = width / 2 - widthOf(selected) / 2 + removeInset, y0 = height / 2 - cardH / 2 + removeInset;
+        return px >= x0 && px <= x0 + removeSize && py >= y0 && py <= y0 + removeSize;
+    }
+    // ---- the card under the pointer (any of them) tilts toward it in 3D and a soft shine follows it
+    // (carousel.tilt.*, carousel.shine.*); each card works out where the pointer is on itself ----
+    property point pointer: Qt.point(-1, -1)
+    property bool pointerIn: false
+    function aim(px, py) {
+        pointer = Qt.point(px, py);
+        pointerIn = !Activity.draggingOut;
+    }
+    function rest() {
+        pointerIn = false;
+    }
     HoverHandler {
         cursorShape: Qt.PointingHandCursor
+        onPointChanged: {
+            if (hovered)
+                carousel.aim(point.position.x, point.position.y);
+        }
+        onHoveredChanged: {
+            if (!hovered)
+                carousel.rest();
+        }
     }
     TapHandler {
         acceptedButtons: Qt.RightButton
@@ -220,6 +271,8 @@ Item {
     }
     TapHandler {
         onTapped: point => {
+            if (carousel.onRemove(point.position.x, point.position.y))
+                return;
             const i = carousel.cardAt(point.position.x, point.position.y);
             if (i < 0)
                 return;
@@ -298,7 +351,9 @@ Item {
             m["text/uri-list"] = carousel.fileUrl(path) + "\r\n";
             return m;
         }
-        Drag.imageSource: path ? carousel.fileUrl(path) : ""
+        // the picture under the pointer while dragging: the card's preview, else the file type's icon
+        readonly property string dragPicture: carousel.count === 0 ? "" : carousel.previews.length === 0 ? (path ? carousel.fileUrl(path) : "") : carousel.previews[carousel.selected] ? carousel.fileUrl(carousel.previews[carousel.selected]) : carousel.icons[carousel.selected] || ""
+        Drag.imageSource: dragPicture
         readonly property real imageH: Math.round(carousel.look.dragOut.imageWidth * carousel.cardH / Math.max(1, w))
         Drag.imageSourceSize: Qt.size(carousel.look.dragOut.imageWidth, imageH)
         Drag.hotSpot.x: carousel.look.dragOut.imageWidth / 2
@@ -341,10 +396,23 @@ Item {
             readonly property int pic: first + (((index - first) % carousel.slots) + carousel.slots) % carousel.slots
             readonly property bool exists: pic >= 0 && pic < carousel.count
             readonly property string path: exists ? carousel.pictures[pic] : ""
+            readonly property string preview: !exists ? "" : carousel.previews.length > 0 ? carousel.previews[pic] || "" : path
+            readonly property bool iconOnly: exists && preview === ""
             readonly property real rel: pic - carousel.at
             readonly property real dist: Math.abs(rel)
             // 1 in front, 0 from one place away: how much the press moves it
             readonly property real front: Math.max(0, 1 - dist)
+            // on its way out (leavingPath): 0 -> 1, shrinking and fading (only one way: the slot then holds
+            // another picture, which must not fade back in)
+            readonly property bool leaving: path !== "" && path === carousel.leavingPath
+            property real gone: leaving ? 1 : 0
+            Behavior on gone {
+                enabled: card.leaving
+                NumberAnimation {
+                    duration: carousel.look.leave.duration
+                    easing.type: Easing.OutCubic
+                }
+            }
 
             visible: exists && dist < carousel.side + 1
             width: exists ? carousel.widthOf(pic) : carousel.cardW
@@ -352,9 +420,27 @@ Item {
             x: carousel.width / 2 - width / 2 + (exists ? carousel.centres[pic] - carousel.centreAt(carousel.at) : rel * carousel.look.side.offset)
             y: carousel.height / 2 - height / 2
             z: -dist
-            opacity: Math.max(0, Math.min(1, carousel.side + 1 - dist))
-            scale: Math.pow(carousel.look.side.scale, dist) * (1 - carousel.look.press.depth * carousel.pulse * front)
+            opacity: Math.max(0, Math.min(1, carousel.side + 1 - dist)) * (1 - gone)
+            scale: Math.pow(carousel.look.side.scale, dist) * (1 - carousel.look.press.depth * carousel.pulse * front) * (1 - (1 - carousel.look.leave.scale) * gone)
             rotation: Math.max(-1, Math.min(1, rel)) * carousel.look.side.rotation
+            // the hover tilt (the card under the pointer: card.tiltX / tiltY, below), in perspective: a viewer carousel.tilt.depth px away (Qt's
+            // own Rotation puts it 1024 px away: a 7 degree tilt moved the edges by 3 px, unseen)
+            readonly property real ax: tiltX * Math.PI / 180
+            readonly property real ay: tiltY * Math.PI / 180
+            transform: Matrix4x4 {
+                matrix: {
+                    const cx = card.width / 2, cy = card.height / 2, d = carousel.look.tilt.depth;
+                    const ca = Math.cos(card.ax), sa = Math.sin(card.ax), cb = Math.cos(card.ay), sb = Math.sin(card.ay);
+                    // R = Ry * Rx
+                    const r = [cb, sb * sa, sb * ca, 0, ca, -sa, -sb, cb * sa, cb * ca];
+                    // M = T(c) * P * R * T(-c), P = perspective (w = 1 - z / d). The depth isn't rotated (z row =
+                    // identity: the card is flat, z = 0): rotated, the tilted card went "behind" its neighbours
+                    // and was cut by them; a zero row instead made the matrix singular and the vector icons on
+                    // the card (the check, the x) vanished
+                    const m = Qt.matrix4x4(r[0], r[1], r[2], 0, r[3], r[4], r[5], 0, 0, 0, 1, 0, -r[6] / d, -r[7] / d, -r[8] / d, 1);
+                    return Qt.matrix4x4(1, 0, 0, cx, 0, 1, 0, cy, 0, 0, 1, 0, 0, 0, 0, 1).times(m).times(Qt.matrix4x4(1, 0, 0, -cx, 0, 1, 0, -cy, 0, 0, 1, 0, 0, 0, 0, 1));
+                }
+            }
             // ---- what sets the card apart from the island (carousel.backing.style): a dark picture on the
             // dark island has no edge otherwise ----
             // glow: the picture itself, very blurred and a little brighter, spreading around its card (the
@@ -383,7 +469,7 @@ Item {
                 radius: Config.corner("tile", card.height)
                 blur: l.blur
                 spread: l.spread
-                color: Qt.alpha(Config.colors.text, l.opacity)
+                color: Qt.alpha(palette.windowText, l.opacity)
             }
             // the picture, decoded at the card's size on screen, off the main thread
             readonly property real dpr: Window.window && Window.window.devicePixelRatio > 0 ? Window.window.devicePixelRatio : 1
@@ -396,7 +482,7 @@ Item {
                 preferredRendererType: Shape.CurveRenderer
                 ShapePath {
                     strokeWidth: -1
-                    fillColor: Config.colors.text
+                    fillColor: palette.windowText
                     PathSvg {
                         path: Config.roundedRectPath(card.width, card.height, Config.corner("tile", card.height), Config.island.cornerSmoothing)
                     }
@@ -408,17 +494,42 @@ Item {
                 anchors.fill: parent
                 visible: picture.status !== Image.Ready
                 radius: Config.corner("tile", height)
-                color: Qt.tint(Qt.tint(Config.island.color, Qt.alpha(Config.colors.text, Config.activity.badgeOpacity)), Qt.alpha("#000000", carousel.look.side.dim * Math.min(1, card.dist)))
+                color: Qt.tint(Qt.tint(palette.window, Qt.alpha(palette.windowText, Config.activity.badgeOpacity)), Qt.alpha("#000000", carousel.look.side.dim * Math.min(1, card.dist)))
             }
             Image {
                 id: picture
                 anchors.fill: parent
                 visible: false
-                source: card.path ? carousel.fileUrl(card.path) : ""
+                source: card.preview ? carousel.fileUrl(card.preview) : ""
                 sourceSize.width: Math.ceil(card.width * card.dpr) || 0
                 sourceSize.height: Math.ceil(card.height * card.dpr) || 0
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
+            }
+            // no picture (a text file, a folder): the file type's icon and the name on the tile
+            Column {
+                visible: card.iconOnly
+                anchors.centerIn: parent
+                width: parent.width - 2 * carousel.look.file.padding
+                spacing: carousel.look.file.gap
+                opacity: 1 - carousel.look.side.dim * Math.min(1, card.dist)
+                Image {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.min(carousel.look.file.iconSize, card.height * carousel.look.file.iconShare)
+                    height: width
+                    source: card.iconOnly ? carousel.icons[card.pic] || "" : ""
+                    sourceSize.width: width * card.dpr
+                    sourceSize.height: height * card.dpr
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                }
+                StyledText {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    elide: Text.ElideMiddle
+                    font.pixelSize: carousel.look.file.nameSize
+                    text: card.iconOnly ? carousel.names[card.pic] || "" : ""
+                }
             }
             // rounded through the shared mask; the cards behind darker
             MultiEffect {
@@ -430,6 +541,88 @@ Item {
                 maskThresholdMin: 0.5
                 maskSpreadAtMin: 1
                 brightness: -carousel.look.side.dim * Math.min(1, card.dist)
+            }
+            // the shine: a soft, wide light where the pointer is on this card (any card, not only the front
+            // one), in the card's own rounded outline; it fades in and out with the pointer
+            readonly property point shineAt: carousel.pointerIn ? mapFromItem(carousel, carousel.pointer.x, carousel.pointer.y) : Qt.point(-1, -1)
+            readonly property bool shining: exists && shineAt.x >= 0 && shineAt.x <= width && shineAt.y >= 0 && shineAt.y <= height
+            property point shineSpot: Qt.point(width / 2, height / 2)
+            onShineAtChanged: if (shining)
+                shineSpot = shineAt
+            property real shineLevel: shining ? 1 : 0
+            // the tilt toward the pointer while it's on this card, springing back flat when it leaves
+            property real tiltX: shining && carousel.look.tilt.enabled ? -(shineAt.y / height - 0.5) * 2 * carousel.look.tilt.max : 0
+            property real tiltY: shining && carousel.look.tilt.enabled ? (shineAt.x / width - 0.5) * 2 * carousel.look.tilt.max : 0
+            Behavior on tiltX {
+                SpringAnimation {
+                    spring: Config.spring(carousel.look.tilt.spring).spring
+                    damping: Config.spring(carousel.look.tilt.spring).damping
+                    epsilon: 0.01
+                }
+            }
+            Behavior on tiltY {
+                SpringAnimation {
+                    spring: Config.spring(carousel.look.tilt.spring).spring
+                    damping: Config.spring(carousel.look.tilt.spring).damping
+                    epsilon: 0.01
+                }
+            }
+            Behavior on shineLevel {
+                NumberAnimation {
+                    duration: carousel.look.shine.fade
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Shape {
+                anchors.fill: parent
+                visible: opacity > 0
+                opacity: carousel.look.shine.enabled ? card.shineLevel * carousel.look.shine.opacity : 0
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    strokeWidth: -1
+                    fillGradient: RadialGradient {
+                        centerX: card.shineSpot.x
+                        centerY: card.shineSpot.y
+                        focalX: centerX
+                        focalY: centerY
+                        centerRadius: Math.max(card.width, card.height) * carousel.look.shine.radius
+                        focalRadius: 0
+                        // a soft falloff (a middle stop): diffuse, no bright core
+                        GradientStop {
+                            position: 0
+                            color: "#ffffff"
+                        }
+                        GradientStop {
+                            position: 0.5
+                            color: Qt.rgba(1, 1, 1, carousel.look.shine.middle)
+                        }
+                        GradientStop {
+                            position: 1
+                            color: "#00ffffff"
+                        }
+                    }
+                    PathSvg {
+                        path: Config.roundedRectPath(card.width, card.height, Config.corner("tile", card.height), Config.island.cornerSmoothing)
+                    }
+                }
+            }
+            // the × (removeIcon), on the front card only: dark and solid, it reads on a white page too
+            Badge {
+                visible: carousel.removeIcon !== "" && opacity > 0
+                x: carousel.removeInset
+                y: carousel.removeInset
+                z: 2
+                height: carousel.removeSize
+                outerCorner: Config.corner("tile", card.height)
+                inset: carousel.removeInset
+                solid: true
+                tint: Config.island.color
+                glyphColor: Config.colors.text
+                icon: carousel.removeIcon
+                glyphSize: carousel.removeGlyph
+                opacity: Math.max(0, 1 - 2 * card.dist)
+                clickable: card.dist < 0.5
+                onClicked: carousel.removeRequested(card.pic)
             }
             // the marked picture (the wallpaper in use, the screenshot just copied)
             Badge {

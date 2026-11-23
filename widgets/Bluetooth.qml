@@ -2,13 +2,12 @@ import QtQuick
 
 import "../services"
 
-// Bluetooth icon for the idle island (a device other than headphones is connected). Always drawn; the
-// IconSlot around it shows/hides it.
+// Bluetooth icon for the bar: bright while Bluetooth is on, dim (bar.overlayOpacity) while off.
 Item {
     id: bt
 
     // config
-    readonly property var icon: Config.idle.bluetooth
+    readonly property var icon: Config.bar.bluetooth
 
     // style
     width: icon.size
@@ -18,7 +17,8 @@ Item {
     // content
     Icon {
         name: bt.icon.icon
-        color: Config.colors.text
+        color: palette.windowText
+        opacity: Sys.bluetooth.enabled ? 1 : Config.bar.overlayOpacity
 
         width: bt.icon.size
         height: bt.icon.size

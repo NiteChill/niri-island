@@ -17,7 +17,7 @@ Item {
     property real gap: Config.activity.spacing
     property bool showValue: true
     property real valueSize: Config.activity.titleSize
-    property color valueColor: Config.colors.text
+    property color valueColor: palette.windowText
 
     readonly property bool isVolume: kind === "volume"
     readonly property var cfg: isVolume ? Config.volume : Config.brightness
@@ -64,7 +64,7 @@ Item {
             anchors.fill: parent
             visible: !row.isVolume
             name: row.isVolume ? "" : row.cfg.icons[Math.min(row.cfg.icons.length - 1, Math.floor(row.level * row.cfg.icons.length))]
-            color: Config.colors.text
+            color: palette.windowText
             rotation: row.isVolume ? 0 : slider.shown * row.cfg.iconTurn
         }
         HoverHandler {

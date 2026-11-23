@@ -16,6 +16,9 @@ Item {
     property alias delegate: view.delegate
     property alias footer: view.footer
     property int selected: 0
+    // the keyboard has moved the selection: the highlight then stays on it; otherwise it shows only while
+    // the pointer is over the list, and fades out in place when it leaves (the dropdowns' rule)
+    property bool keyShown: false
     // the pointer may change the selection (false while a row is busy with the keyboard, e.g. a password)
     property bool pointerSelects: true
     property int savedCount: 0
@@ -52,9 +55,6 @@ Item {
     ListView {
         id: view
         anchors.fill: parent
-        // blurred island: faded through a mask instead of a band in the island color (ScrollFade)
-        layer.enabled: edgeFade.masked
-        layer.effect: edgeFade.effect
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: list.cfg.rowHeight * Config.panel.visibleRows
@@ -83,21 +83,29 @@ Item {
                 height: list.cfg.headerHeight
                 verticalAlignment: Text.AlignVCenter
                 font.pixelSize: Config.activity.captionSize
-                color: Config.colors.secondary
+                color: palette.placeholderText
                 text: sectionItem.section === "saved" ? list.savedTitle : list.otherTitle
             }
         }
 
-        // highlight that springs to the selected row
+        // highlight that springs to the selected row; shown while hovered or after a key, fading in place
         highlight: Rectangle {
-            visible: view.count > 0
+            id: wash
+            visible: view.count > 0 && opacity > 0
             width: view.width
             height: list.cfg.rowHeight
             radius: Config.corner("row", height)
-            color: Config.colors.text
-            opacity: list.cfg.selectedOpacity
+            color: palette.windowText
+            opacity: listHover.hovered || list.keyShown ? list.cfg.selectedOpacity : 0
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Config.motion.hoverFade
+                }
+            }
             y: view.currentItem ? view.currentItem.y : 0
+            // hidden, it jumps to its row (no slide from where it last was)
             Behavior on y {
+                enabled: wash.opacity > 0
                 SpringAnimation {
                     spring: Config.spring(list.cfg.highlight).spring
                     damping: Config.spring(list.cfg.highlight).damping

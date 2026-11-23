@@ -9,8 +9,8 @@ Column {
 
     property string caption: ""
     property string title: ""
-    property color captionColor: Config.colors.secondary
-    property color titleColor: Config.colors.text
+    property color captionColor: palette.placeholderText
+    property color titleColor: palette.windowText
     // widest of the two lines, for modes that size themselves to the text
     readonly property real naturalWidth: Math.max(captionText.implicitWidth, titleText.implicitWidth)
 

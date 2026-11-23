@@ -22,6 +22,7 @@ IslandMode {
     launcher: Config.media.launcher
     keyTarget: mode
     Keys.onSpacePressed: Sys.mediaPlayPause()
+    Keys.onTabPressed: Activity.switchNotchTab()
     Keys.onLeftPressed: previousControl.skip()
     Keys.onRightPressed: nextControl.skip()
 
@@ -185,7 +186,7 @@ IslandMode {
                     width: control.size
                     height: control.size
                     name: Config.media.icons.skip
-                    color: Config.colors.text
+                    color: palette.windowText
                     opacity: tri.grow
                     visible: tri.grow > 0
                     transform: Scale {
@@ -256,7 +257,7 @@ IslandMode {
                     elide: Text.ElideRight
                     font.pixelSize: mode.layout.titleSize
                     font.weight: mode.layout.titleWeight
-                    color: mode.media.active ? Config.colors.text : Config.colors.secondary
+                    color: mode.media.active ? palette.windowText : palette.placeholderText
                     text: mode.media.active ? mode.media.title || "" : mode.layout.nothingText
                 }
                 StyledText {
@@ -267,7 +268,7 @@ IslandMode {
                     width: parent.width
                     elide: Text.ElideRight
                     font.pixelSize: mode.layout.artistSize
-                    color: Config.colors.secondary
+                    color: palette.placeholderText
                     text: mode.media.active ? (mode.media.artist || mode.media.app || "") : ""
                 }
             }
@@ -299,7 +300,7 @@ IslandMode {
                 font.features: {
                     "tnum": 1
                 }
-                color: Config.colors.secondary
+                color: palette.placeholderText
                 text: mode.hasTimeline ? mode.clock(mode.second) : mode.layout.progress.unknownTime
             }
             LevelSlider {
@@ -331,7 +332,7 @@ IslandMode {
                 font.features: {
                     "tnum": 1
                 }
-                color: Config.colors.secondary
+                color: palette.placeholderText
                 text: mode.hasTimeline ? "-" + mode.clock(Math.ceil(Math.max(0, mode.trackLength - mode.position))) : mode.layout.progress.unknownTime
             }
         }
@@ -374,7 +375,7 @@ IslandMode {
                         readonly property bool showing: modelData === mode.media.playing
                         anchors.fill: parent
                         name: modelData ? mode.layout.icons.pause : mode.layout.icons.play
-                        color: Config.colors.text
+                        color: palette.windowText
                         opacity: showing ? 1 : 0
                         scale: showing ? 1 : mode.layout.controls.swapScale
                         Behavior on opacity {

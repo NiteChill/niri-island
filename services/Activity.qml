@@ -3,23 +3,34 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// What the island shows. Everything that wants the island is an activity in one queue: the panel the
-// user opened (search, battery, wifi), volume / brightness / microphone feedback, messages from scripts,
-// system alerts (low battery, charging, Wi-Fi connected, headphones connected), notifications (not while do
-// not disturb is on, see doNotDisturb). One is on screen at a time; the rules (logic only, the data comes
-// from Sys):
+// What is open and what the notch shows.
+//
+// Open (one at a time; opening one closes the others):
+//  - a dropdown under the bar (`dropdown`: "wifi", "battery", "calendar", "search"...), opened from its bar
+//    icon, the keyboard or IPC. The calendar (the clock) brings the notification center under it (`center`)
+//  - a panel grown out of the notch (`panel`): the player ("media") or the shelf ("shelf"): a click on the
+//    notch (openNotch picks which; tabs switch when both have something, notchTabs), or IPC; and the
+//    launcher ("search": Mod+Space, the logo's menu) and the wallpaper picker ("wallpaper")
+// Something dragged over the notch turns it into a small drop zone (`dropping`, DropMode); what's dropped
+// goes on the shelf, which opens on it.
+//
+// The notch: everything that wants it is an activity in one queue: the open media controls, volume /
+// brightness / microphone feedback, messages from scripts, system alerts (low battery, charging, Wi-Fi
+// connected, headphones connected), and the music playing (the base layer: it stays while music plays,
+// under everything else). One is on screen at a time; the rules (logic only, the data comes from Sys):
 //
 //  - The one whose priority class comes first in island.priority wins. By default what the user does
-//    (key presses, panels they open) comes before what the system does (messages, notifications).
-//  - The most recent user interaction always wins: opening a panel clears the volume/brightness
-//    feedback, and pressing a volume key over an open panel shows the volume (the panel comes back after).
-//  - Anything covered keeps its remaining time and comes back afterwards: a notification that arrives
-//    while you're in the launcher waits, and shows (with its full time) once you close it.
+//    (key presses, the media controls they open) comes before what the system does (alerts), and the music
+//    playing comes last.
+//  - The most recent user interaction always wins: opening the media controls clears the volume /
+//    brightness feedback, and pressing a volume key over them shows the volume (they come back after).
+//  - Anything covered keeps its remaining time and comes back afterwards.
 //  - Same key = same activity: volume, brightness and microphone share the key "osd", so pressing
 //    volume five times (or brightness right after) updates one activity instead of queueing five.
-//  - Hovering the island pauses the shown activity's timer; leaving resumes it with at least
+//  - Hovering the notch pauses the shown activity's timer; leaving resumes it with at least
 //    island.leaveDelay left.
 //  - Powering off / restarting clears everything: the island says goodbye (see "goodbye" below).
+// Notifications don't use the notch: they drop under it as cards (Inbox, surfaces/NotificationStack).
 //
 // IPC (bind keys in niri):  qs ipc call osd volume up|down|mute   qs ipc call osd mic mute
 //                            qs ipc call osd brightness up|down    qs ipc call osd message "text" "icon.svg"
@@ -28,47 +39,129 @@ Singleton {
 
     // ---- state read by the UI ----
     // the activity shown: { key, kind, cls, timeout, data, seq, since (ms, when it first came) } or null.
-    // `kind` = the island mode's name ("battery", "volume", "notification"...).
+    // `kind` = the notch mode's name ("volume", "media", "nowPlaying"...); null = the notch at rest.
     property var current: null
-    // the panel the user has open ("" = none), shown or covered by something more important
+    // the panel grown out of the notch ("media", or "" = none), shown or covered by something more important
     readonly property string panel: _panel
-    // the island is showing the open panel right now (not covered)
+    // the notch is showing that panel right now (not covered)
     readonly property bool panelShown: !!current && current.key === "panel"
-    // set by shell.qml: mouse over the island, timers pause
+    // the dropdown open under the bar ("" = none)
+    property string dropdown: ""
+    // the notification center is open: it comes with the calendar, under the clock
+    readonly property bool center: dropdown === "calendar"
+    // anything open that takes clicks outside it and the keyboard
+    readonly property bool anyOpen: dropdown !== "" || _panel !== ""
+    // something is being dragged over the notch (shell.qml's DropArea): the shelf is open to take it
+    property bool dropping: false
+    // set by shell.qml: mouse over the notch, its timer pauses
     property bool hovered: false
-    // a picture is being dragged out of the island (PictureCarousel.dragOut): the panel stays open and
-    // the click-outside layer steps aside, so the drop reaches the window under the pointer
+    // a picture is being dragged out (PictureCarousel.dragOut): what's open stays open and the
+    // click-outside layer steps aside, so the drop reaches the window under the pointer
     property bool draggingOut: false
     // the shown activity hit its limit (volume at max, brightness at min...): sliders bounce
     signal bumped(string kind, int direction)
 
-    // ---- panels (user interaction) ----
+    // ---- opening and closing ----
+    // the panels that grow out of the notch, and the dropdowns (modes/AllDropdowns.qml); other names are
+    // ignored ("time" is the calendar's old name)
+    readonly property var notchPanels: ["media", "shelf", "search", "wallpaper"]
+    readonly property var dropdowns: ["wifi", "bluetooth", "battery", "calendar", "quickSettings", "app", "system", "tray"]
+    // older names: "time" was the calendar, "screenshots" the shelf, the center lives with the calendar
+    readonly property var _aliases: ({ "time": "calendar", "screenshots": "shelf", "notifications": "calendar" })
+    // (search was a dropdown under the notch until 2026-11-23; it's the notch's own panel now)
     property string _panel: ""
-    function openPanel(name) {
+    function open(name) {
         if (name === "" || name === "idle") {
-            closePanel();
+            closeAll();
             return;
         }
-        _panel = name;
-        // the user moved on from the key they pressed: don't make them wait for its feedback to time out
-        _items = _items.filter(i => i.key !== "osd");
-        show(name, "panel", "panel", null, 0);
+        name = _aliases[name] || name;
+        if (_goodbye || (notchPanels.indexOf(name) < 0 && dropdowns.indexOf(name) < 0))
+            return;
+        if (notchPanels.indexOf(name) >= 0) {
+            dropdown = "";
+            _panel = name;
+            // the user moved on from the key they pressed: don't make them wait for its feedback to time out
+            _items = _items.filter(i => i.key !== "osd");
+            show(name, "panel", "panel", null, 0);
+            return;
+        }
+        _closePanel();
+        dropdown = name;
     }
-    function closePanel() {
+    // a tray icon's menu (the "tray" dropdown, drawn by the shell: TrayMenuMode): which app's (its tray id)
+    property string trayId: ""
+    function openTray(id) {
+        trayId = id;
+        open("tray");
+    }
+    function toggleTray(id) {
+        if (dropdown === "tray" && trayId === id)
+            closeAll();
+        else
+            openTray(id);
+    }
+    function isOpen(name) {
+        name = _aliases[name] || name;
+        return notchPanels.indexOf(name) >= 0 ? _panel === name : dropdown === name;
+    }
+    function toggle(name) {
+        open(isOpen(name) ? "" : name);
+    }
+    function closeAll() {
+        dropdown = "";
+        _closePanel();
+    }
+
+    // ---- opening the notch (a click on it): the player or the shelf ----
+    // Both are panels grown out of the notch; with something in both (music, and things on the shelf) a
+    // small navbar of icons sits on top to switch (NotchTabs, `notchTabs`). A click opens the one that
+    // matters now: something put on the shelf in the last island.tabs.recent seconds (a drop, a
+    // screenshot), else the music when there is some, else the shelf (empty: where things go).
+    readonly property bool notchTabs: Sys.media.active && Sys.shelf.length > 0
+    function openNotch() {
+        if (_goodbye)
+            return;
+        const recent = Sys.shelfTouched > 0 && Date.now() - Sys.shelfTouched < Config.island.tabs.recent * 1000;
+        open(recent || !Sys.media.active ? "shelf" : "media");
+    }
+    // the other tab (Tab / a click on its icon)
+    function switchNotchTab() {
+        if (notchTabs && notchPanels.indexOf(_panel) >= 0)
+            open(_panel === "media" ? "shelf" : "media");
+    }
+
+    // dragged over the notch: it becomes a small drop zone (DropMode, class "drop", first in
+    // island.priority); dropped, the shelf opens on what came in (Sys.shelfAdded)
+    onDroppingChanged: {
+        if (dropping)
+            show("drop", "drop", "drop", null, 0);
+        else
+            dismiss("drop");
+    }
+    Connections {
+        target: Sys
+        function onShelfAdded(path) {
+            root.open("shelf");
+        }
+    }
+    function _closePanel() {
+        if (_panel === "")
+            return;
         _panel = "";
         dismiss("panel");
     }
 
     // ---- goodbye: the computer is powering off or restarting (Sys.shuttingDown, goodbye.enabled) ----
-    // Everything goes (the open panel included: the launcher that started it closes), the island writes
-    // "bye bye" (GoodbyeMode), then the system goes down. Not in island.priority: it clears the queue and
-    // nothing can be added until the shutdown is cancelled.
+    // Everything goes (whatever is open closes), the island writes "bye bye" (GoodbyeMode), then the system
+    // goes down. Not in island.priority: it clears the queue and nothing can be added until the shutdown is
+    // cancelled.
     property bool _goodbye: false
     Connections {
         target: Sys
         function onShuttingDownChanged() {
             if (Sys.shuttingDown && Config.goodbye.enabled) {
-                root._panel = "";
+                root.closeAll();
                 root._items = [];
                 root._goodbye = true;
                 root.show("goodbye", "goodbye", "goodbye", null, 0);
@@ -86,62 +179,6 @@ Singleton {
             show("goodbye", "goodbye", "goodbye", null, 0);
     }
 
-    // ---- calm (calm.*): the island rests as a small empty pill ----
-    // On while calm.always, while a window is fullscreen (calm.fullscreen, Sys.fullscreen), or when
-    // toggled by hand (qs ipc call island calm: the toggle overrides the automatic state until the
-    // fullscreen state changes). Hovering the pill shows the idle island (calmRevealed, after
-    // calm.revealDelay); leaving hides it again calm.hideDelay later. Panels the user opens always show;
-    // of the rest, only the classes in calm.shows do (the others wait, keeping their time, like anything
-    // covered, and play their sound only once they show).
-    property string _calmOverride: ""   // "", "on" or "off"
-    readonly property bool calmAuto: Config.calm.enabled && (Config.calm.always || (Config.calm.fullscreen && Sys.fullscreen))
-    readonly property bool calm: _calmOverride === "on" || (_calmOverride === "" && calmAuto)
-    property bool calmRevealed: false
-    function toggleCalm() {
-        _calmOverride = calm ? "off" : "on";
-    }
-    function revealCalm() {
-        calmHide.stop();
-        calmRevealed = calm;
-    }
-    Connections {
-        target: Sys
-        function onFullscreenChanged() {
-            root._calmOverride = "";
-        }
-    }
-    onCalmChanged: {
-        calmReveal.stop();
-        calmHide.stop();
-        calmRevealed = false;
-        _pick();
-    }
-    Timer {
-        id: calmReveal
-        interval: Config.calm.revealDelay
-        onTriggered: root.calmRevealed = root.calm
-    }
-    Timer {
-        id: calmHide
-        interval: Config.calm.hideDelay
-        onTriggered: root.calmRevealed = false
-    }
-    function _calmHover() {
-        if (hovered) {
-            calmHide.stop();
-            if (calm && !calmRevealed)
-                calmReveal.restart();
-        } else {
-            calmReveal.stop();
-            if (calmRevealed)
-                calmHide.restart();
-        }
-    }
-    // shown while calm: the user's panels, the goodbye, and the classes in calm.shows
-    function _calmShows(cls) {
-        return !calm || cls === "panel" || cls === "goodbye" || Config.calm.shows.indexOf(cls) >= 0;
-    }
-
     // ---- queue ----
     property var _items: []
     property int _seq: 0
@@ -153,10 +190,8 @@ Singleton {
             return;
         const items = _items.filter(i => i.key !== key);
         const old = _items.find(i => i.key === key);
-        // a new one plays its sound when it arrives; held back by calm mode, when it shows (_pick)
-        const held = !_calmShows(cls);
-        if (!old && !held)
-            _sound(kind);
+        if (!old)
+            sound(kind);
         items.push({
             "key": key,
             "kind": kind,
@@ -165,16 +200,15 @@ Singleton {
             "timeout": timeout,
             "remaining": timeout,
             "seq": old && old.cls === cls ? old.seq : ++_seq,
-            "since": old ? old.since : Date.now(),
-            "soundLater": held && (!old || old.soundLater)
+            "since": old ? old.since : Date.now()
         });
         _items = items;
         _pick();
     }
-    // ---- sounds: a new notification or alert (not an update in place) plays its sound (Config.sounds:
-    // per kind, quiet during Focus except low battery, one sound per sounds.minGap) ----
+    // ---- sounds: a new alert or notification (not an update in place) plays its sound (Config.sounds: per
+    // kind, quiet during Focus except low battery, one sound per sounds.minGap) ----
     property double _lastSound: 0
-    function _sound(kind) {
+    function sound(kind) {
         const all = Config.sounds;
         const one = all[kind];
         if (!all.enabled || !one || !one.enabled)
@@ -206,22 +240,15 @@ Singleton {
         _pause();
         let best = null;
         for (const i of _items) {
-            if (!_calmShows(i.cls))
-                continue;
             if (!best)
                 best = i;
             else {
                 const a = _rank(i.cls), b = _rank(best.cls);
-                const newer = Config.notifications.newestFirst && i.kind === "notification" ? i.seq > best.seq : i.seq < best.seq;
-                if (a < b || (a === b && newer))
+                if (a < b || (a === b && i.seq < best.seq))
                     best = i;
             }
         }
         current = best;
-        if (best && best.soundLater) {
-            best.soundLater = false;
-            _sound(best.kind);   // a burst after calm mode = one sound (sounds.minGap)
-        }
         _resume();
     }
 
@@ -241,7 +268,6 @@ Singleton {
         timer.restart();
     }
     onHoveredChanged: {
-        _calmHover();
         if (hovered)
             _pause();
         else if (current) {
@@ -252,14 +278,8 @@ Singleton {
     Timer {
         id: timer
         onTriggered: {
-            const item = root.current;
-            if (!item)
-                return;
-            if (item.kind === "notification")
-                Sys.expireNotification(item.data);   // Sys emits closed -> dismiss
-            if (item.kind === "screenshot")
-                Sys.expireNotification(item.data.notification);   // niri's notification goes with it
-            root.dismiss(item.key);
+            if (root.current)
+                root.dismiss(root.current.key);
         }
     }
 
@@ -267,7 +287,7 @@ Singleton {
 
     // volume / brightness / microphone: one shared slot (key "osd"). The keys still change the level when
     // the pop-up is switched off (volume.enabled...); only the island stays as it is.
-    // Quick settings on screen already shows the volume and brightness bars (they bounce there) and the mic
+    // Quick settings open already shows the volume and brightness bars (they bounce there) and the mic
     // switch: no pop-up.
     function feedback(kind) {
         if (_inQuickSettings())
@@ -278,10 +298,10 @@ Singleton {
         const timeout = kind === "volume" ? Config.volume.timeout : kind === "brightness" ? Config.brightness.timeout : Config.microphone.timeout;
         show(kind, "osd", kind, null, timeout);
     }
-    // quick settings is on screen: pop-ups for what it already shows (levels, mic, Wi-Fi network, Bluetooth
+    // quick settings is open: pop-ups for what it already shows (levels, mic, Wi-Fi network, Bluetooth
     // device) are skipped
     function _inQuickSettings() {
-        return panelShown && _panel === "quickSettings";
+        return dropdown === "quickSettings";
     }
     function volume(action) {
         if (!Sys.audio.ready)
@@ -315,7 +335,7 @@ Singleton {
         feedback("microphone");
     }
 
-    // ---- system alerts: low battery, charging, Wi-Fi connected, headphones connected, now playing ----
+    // ---- system alerts: low battery, charging, Wi-Fi connected, headphones connected ----
     // Only real changes pop up: whatever is already there when the shell starts (or within
     // system.startupQuiet of it, while services report in) is taken as the starting point.
     property double _startedTime: Date.now()
@@ -367,8 +387,8 @@ Singleton {
         if (ssid === _lastSsid)
             return;
         _lastSsid = ssid;
-        // (the network's name is under quick settings' Wi-Fi switch)
-        if (ssid !== "" && Config.wifiConnected.enabled && !_quiet() && !_inQuickSettings())
+        // (the Wi-Fi dropdown shows the network itself)
+        if (ssid !== "" && Config.wifiConnected.enabled && !_quiet() && dropdown !== "wifi" && !_inQuickSettings())
             show("wifiConnected", "wifiConnected", "wifiConnected", {
                 "ssid": ssid
             }, Config.wifiConnected.timeout);
@@ -381,8 +401,8 @@ Singleton {
         if (name === _lastAudioDevice)
             return;
         _lastAudioDevice = name;
-        // Bluetooth ones: their name is under quick settings' Bluetooth switch
-        if (name !== "" && Config.headphones.enabled && !_quiet() && !(Sys.bluetooth.audioConnected && _inQuickSettings()))
+        // Bluetooth ones: the Bluetooth dropdown / quick settings show them
+        if (name !== "" && Config.headphones.enabled && !_quiet() && !(Sys.bluetooth.audioConnected && (_inQuickSettings() || dropdown === "bluetooth")))
             show("headphones", "headphones", "headphones", {
                 "name": name
             }, Config.headphones.timeout);
@@ -390,24 +410,34 @@ Singleton {
             dismiss("headphones");
     }
 
-    // now playing: music starts after a quiet spell (nothing played for nowPlaying.quietGap). The next song
-    // of a playlist, a resume after a short pause, a track change while playing: no alert. Pausing takes
-    // it down. Not while the media panel is on screen (it already shows the music) or another panel is open.
-    property bool _mediaPlaying: false
-    property double _mediaStoppedAt: 0
+    // ---- the music playing: the notch's base layer ----
+    // While music plays, the notch shows it (cover at the left, bars at the right, NowPlayingMode) under
+    // everything else (nowPlaying is last in island.priority): an alert covers it, then it comes back.
+    // Paused, it stays nowPlaying.linger seconds (a click on it opens the controls to start it again).
+    // While the music's own window (or browser tab) is in front, it stays out of the notch
+    // (nowPlaying.hideWhenFocused, Sys.mediaFocused); it comes back when you leave it.
     function _checkMedia() {
         const playing = Sys.media.playing && Sys.media.active;
-        if (playing === _mediaPlaying)
-            return;
-        _mediaPlaying = playing;
-        if (!playing) {
-            _mediaStoppedAt = Date.now();
+        const looking = Config.nowPlaying.hideWhenFocused && Sys.mediaFocused;
+        if (!Config.nowPlaying.enabled || !Sys.media.active || looking) {
+            nowPlayingLinger.stop();
             dismiss("nowPlaying");
             return;
         }
-        const quiet = _mediaStoppedAt === 0 || Date.now() - _mediaStoppedAt > Config.nowPlaying.quietGap * 1000;
-        if (quiet && Config.nowPlaying.enabled && !_quiet() && !panelShown)
-            show("nowPlaying", "nowPlaying", "nowPlaying", {}, Config.nowPlaying.timeout);
+        if (playing) {
+            nowPlayingLinger.stop();
+            if (!_items.some(i => i.key === "nowPlaying"))
+                show("nowPlaying", "nowPlaying", "nowPlaying", {}, 0);
+        } else if (_items.some(i => i.key === "nowPlaying") && !nowPlayingLinger.running)
+            nowPlayingLinger.restart();
+    }
+    Timer {
+        id: nowPlayingLinger
+        interval: Config.nowPlaying.linger * 1000
+        onTriggered: {
+            if (!Sys.media.playing)
+                root.dismiss("nowPlaying");
+        }
     }
 
     Component.onCompleted: {
@@ -430,70 +460,23 @@ Singleton {
         function onMediaChanged() {
             root._checkMedia();
         }
+        function onMediaFocusedChanged() {
+            root._checkMedia();
+        }
+    }
+    Connections {
+        target: Config
+        function onDataChanged() {
+            root._checkMedia();
+        }
     }
 
-    // do not disturb (the quick settings tile): notifications arrive but the island doesn't show them, except
-    // critical ones (notifications.dndAllowsCritical). It's the desktop's setting (Sys.systemFocus, gsettings
-    // show-banners), so the settings app shows the same and it survives restarts.
+    // do not disturb (the Focus switch): notifications go to the center without a card dropping in, except
+    // critical ones (notifications.dndAllowsCritical). It's the desktop's setting (Sys.systemFocus,
+    // gsettings show-banners), so the settings app shows the same and it survives restarts.
     readonly property bool doNotDisturb: Sys.systemFocus === true
     function setDoNotDisturb(on) {
         Sys.setSystemFocus(on);
-    }
-
-    // notifications: one activity each, key "n<id>"; updated in place when the app replaces it
-    property var _hooked: ({})
-    function _notify(n, plain) {
-        // switched off (notifications.enabled): apps still deliver them, the island just doesn't show them
-        if (!Config.notifications.enabled)
-            return;
-        // niri's "Screenshot captured": the screenshot itself (ScreenshotMode), shown even in Focus (you
-        // just took it). One key for all of them: a new screenshot takes the place of the one shown (the
-        // older notification is closed), instead of queueing behind it. Sized before it shows.
-        // (`plain`: no file found, shown as a normal notification instead)
-        if (!plain && Config.screenshot.enabled && Config.screenshot.summaries.indexOf(n.summary) >= 0) {
-            Sys.findScreenshot(n, (path, w, h) => {
-                if (path === "")
-                    root._notify(n, true);
-                else {
-                    const old = root._items.find(i => i.key === "screenshot");
-                    if (old && old.data.notification !== n)
-                        Sys.dismissNotification(old.data.notification);
-                    root.show("screenshot", "screenshot", "screenshot", {
-                        "path": path,
-                        "width": w,
-                        "height": h,
-                        "notification": n
-                    }, Config.screenshot.timeout);
-                }
-            });
-            return;
-        }
-        const info = Sys.notificationInfo(n);
-        const cls = info.urgency === "critical" ? "criticalNotification" : info.urgency === "low" ? "lowNotification" : "notification";
-        if (doNotDisturb && !(cls === "criticalNotification" && Config.notifications.dndAllowsCritical))
-            return;
-        if (cls === "lowNotification" && !Config.notifications.showLowUrgency)
-            return;
-        const cfg = Config.notifications;
-        const timeout = cls === "criticalNotification" ? cfg.criticalTimeout : info.timeout > 0 && cfg.respectAppTimeout ? info.timeout : cfg.timeout;
-        show("notification", "n" + n.id, cls, n, timeout);
-    }
-    Connections {
-        target: Sys
-        function onNotified(n) {
-            const key = "n" + n.id;
-            if (!root._hooked[key]) {
-                root._hooked[key] = true;
-                n.closed.connect(() => {
-                    delete root._hooked[key];
-                    root.dismiss(key);
-                });
-                // an app replacing its notification updates the same object: show it again
-                n.summaryChanged.connect(() => root._notify(n));
-                n.bodyChanged.connect(() => root._notify(n));
-            }
-            root._notify(n);
-        }
     }
 
     IpcHandler {

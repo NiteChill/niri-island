@@ -67,7 +67,7 @@ Item {
         }
     }
 
-    // the corner style's pill corner (island.shape, see Config.corner)
+    // the pill corner (corners.pill, see Config.corner)
     readonly property real corner: Config.corner("pill", height)
 
     // the drawn bar: the slider's width plus the bump, grown toward the push
@@ -81,7 +81,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: slider.corner
-            color: Config.colors.text
+            color: palette.windowText
             opacity: slider.cfg.trackOpacity
         }
         // the fill, dimmed as one piece (muted): fading each part on its own let the red under the white
@@ -102,7 +102,7 @@ Item {
                 width: slider.shown * body.width
                 height: parent.height
                 radius: Math.min(slider.corner, width / 2)
-                color: slider.dimmed ? Config.colors.text : slider.overColor
+                color: slider.dimmed ? palette.windowText : slider.overColor
                 Behavior on color {
                     ColorAnimation {
                         duration: Config.motion.colorFade
@@ -114,7 +114,7 @@ Item {
                 width: Math.min(slider.shown, slider.maximum > 1 ? 1 / slider.maximum : 1) * body.width
                 height: parent.height
                 radius: Math.min(slider.corner, width / 2)
-                color: Config.colors.text
+                color: palette.windowText
             }
         }
     }

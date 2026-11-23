@@ -1,11 +1,21 @@
-# Quickshell config: Dynamic Island style top bar
+# Quickshell config: macOS-style bar + Dynamic Island notch
 
 QML shell for Quickshell 0.3 on niri (Wayland, Fedora). Entry point: `shell.qml`.
-One island at the top of the screen that morphs between modes, designed to feel like Apple's Dynamic Island.
-Everything shows in it: panels the user opens (battery, Wi-Fi, Bluetooth, search, time) and activities (volume, brightness,
-microphone, messages, notifications, alerts; it replaced swayosd and mako). Activity queues them and picks one by
-priority (`island.priority`): what the user does interrupts what the system does. (A separate "drop" island +
-liquid shader existed before; it was removed on purpose, don't bring it back.)
+Since 2026-11-23 (`menu-bar` branch; the previous island-only design is the `v0.1-island` tag) the shell
+is a top bar like macOS's with a notch in the middle like the iPhone's Dynamic Island:
+- the **bar**: the focused app and the workspaces at the left; the tray, Bluetooth, Wi-Fi, battery, quick
+  settings and the clock at the right, white over a black-to-transparent gradient. Each icon opens its
+  **dropdown** right under it (Wi-Fi, Bluetooth, battery, quick settings, calendar): calm, Mac-menu-like
+  (a title, a switch, the list), in the light / dark theme.
+- the **notch** shows only what happens *now*: volume / brightness / mic feedback, alerts (low battery,
+  charging, Wi-Fi connected, headphones, messages, goodbye) and the music playing (its base layer). A click
+  on the music grows it into the media controls; a click on the resting notch opens the notification center.
+- **notifications** drop in from above the screen's edge as cards under the notch, several at once, and
+  stay in a history (the center) saved across reboots. Screenshots are cards that pile up.
+Why (the user): discoverability. Everything was hidden behind the island and the launcher; "it's easy
+for me because I know all the things. not everyone will". The island-centred design (idle island, calm
+mode, panels inside the island, blur) was dropped on purpose: don't bring it back. (A separate "drop"
+island + liquid shader existed even before; also removed on purpose.)
 
 ## Non-negotiable rules (read first)
 
@@ -33,104 +43,106 @@ names, and logic constants that are not a preference (e.g. array indexes, 6 degr
 ## Structure
 
 ```
-shell.qml              entry point: top-bar window, Island + AllModes, islandState (= Activity.current), IPC
+shell.qml              entry point: ONE top window (Overlay layer, the whole screen tall, reserves bar.height,
+                       takes the pointer only where something is drawn: `mask`), holding Bar, the notification
+                       stack, the dropdown card and the notch (Island + AllModes); islandState (= Activity.current,
+                       else "rest"), root.open(name, byKeyboard), keyboard focus, IPC; the click-outside layer
 ScreenCorners.qml      rounded screen corners (config screenCorners): 4 click-through overlay windows per screen
+surfaces/
+  Bar.qml              the bar: gradient, app name + workspace dots (left), tray + status icons + clock (right,
+                       BarItems with their dropdown's name); anchorFor(name) = where a dropdown hangs
+  Dropdown.qml         the dropdowns' card: an Island (attached false, corner role "menu", theme colors) holding
+                       AllDropdowns; hangs under Bar.anchorFor(Activity.dropdown), else under the notch; appears
+                       at its size from nothing (fade + panel.appear.scale), springs size + x between dropdowns
+  NotificationStack.qml under the notch: the banners (ListView over Inbox.banners: drop in from above the screen,
+                       others spring down) and the center (black pill + count + Clear all, NEW / OLD chips,
+                       Inbox.model; Escape closes it)
 config/
   schema.json          every setting described (section, group, label, type, default...). The defaults ARE
-                       the shipped island (2026-11-12: set to the user's island; not blurred, every alert on)
+                       the shipped shell
   config.jsonc         the user's values. JSON with comments + trailing commas (Config.jsonc). Lists every
                        setting commented out at its default (`// "radius": 40,`); only the curated ones the
-                       future desktop settings app exposes are active: island.shape,
-                       island.cornerSmoothing, island.blur, island.blurOpacity, island.attachToTop,
-                       <alert>.enabled. Object { } lines always stay active, so uncommenting one line works.
+                       desktop settings app exposes are active (island.shape, island.cornerSmoothing,
+                       <alert>.enabled...). Object { } lines always stay active, so uncommenting one line works.
                        Prose comments only in the /* */ header (the checker uncomments every `//` line).
                        Regenerate with `python3 tools/check-config.py --rewrite` (keeps active lines; always lays the file
-                       out in the schema's order, so it's the same text whoever wrote it, the Settings app included).
-                       Named .jsonc (a .json with comments: "Comments are not permitted in JSON" in Zed);
-                       its first key "$schema": "./config.schema.json" tells Zed/VS Code that comments and
-                       trailing commas are allowed (tested with Zed's own JSON server: clean)
+                       out in the schema's order). Its first key "$schema": "./config.schema.json" tells Zed / VS
+                       Code that comments and trailing commas are allowed
   config.schema.json   that editor schema (allowComments, allowTrailingCommas). Not the settings' schema
 services/              singletons (registered in services/qmldir)
   Config.qml           schema defaults + config.jsonc; Config.<section>.<key>. Also the corner helpers
-                       (Config.corner / inner / restCorner / restHeight, see Island shape)
-                       Each section is a `readonly property var foo: data.foo` line: a new section needs one
-  Sys.qml              ALL system data and actions: fullscreen (niri event stream, for calm mode), battery + power profile + time left, audio output +
-                       volume + mic, brightness, Wi-Fi (state, nearby networks, connect), Bluetooth (state,
-                       devices, discovery, connect / pair), media (MPRIS: Sys.media; the position as an
-                       anchor + rate, mediaPositionNow(); mediaLevels from cava while bars are shown;
-                       mediaColor from the cover), clock + week, apps,
-                       files, shutdown (logind delay lock + PrepareForShutdown), desktop settings (gsettings accent-color +
-                       clock-format: `gsettings monitor`; Sys.hour24, Config.colors.accent), notifications (UPower, Pipewire, Networking, Bluetooth, pactl, brightnessctl, find, the
-                       notification server), and the derived values (battery percentage/color, week, limits)
-  Activity.qml         what the island shows: one queue (open panel + activities), priorities
-                       (island.priority), timers, `osd` IPC, do not disturb (`doNotDisturb`, the Focus tile:
-                       gsettings notifications show-banners via Sys.systemFocus, survives restarts),
-                       draggingOut (a picture dragged out of a carousel: keeps the panel, hides the click catcher)
-island/                the island engine
-  Island.qml           the shape (a path: Apple-style continuous corners, optional attach-to-top with concave
-                       flares) that springs to the active mode's size, and holds every mode (config "island")
+                       (Config.corner / inner / restCorner / restHeight / attached), the theme (Config.dark,
+                       Config.theme = colors.light / colors.dark, systemScheme set by Sys) and the font's axes
+                       (Config.axes(size, weight)). Each section is a `readonly property var foo: data.foo` line
+  Sys.qml              ALL system data and actions: niri (one event stream: workspaces, focusedApp, overview,
+                       fullscreen; focusWorkspace / toggleOverview), battery + power profile + time left, audio
+                       output + volume + mic + the outputs list (audioOutputs / setAudioOutput), brightness, Wi-Fi,
+                       Bluetooth, media (MPRIS; mediaLevels from cava; mediaColor), clock (+ calendarMonth,
+                       weekdayNames, formatStamp), tray (trayItems, trayActivate / trayMenu), apps, files, pins,
+                       wallpapers, screenshots, shutdown, desktop settings (gsettings: accent, clock format,
+                       color scheme, Focus), notifications (the server, opening their window)
+  Activity.qml         what is open (one at a time: `dropdown`, the notification `center`, the notch `panel`
+                       "media" / "shelf" / "search"; open / toggle / isOpen / closeAll; unknown names ignored, "time" =
+                       "calendar")
+                       and what the notch shows: one queue, priorities (island.priority), timers, the music as
+                       the base layer, sounds, `osd` IPC, do not disturb (gsettings show-banners)
+  Inbox.qml            the notifications: history (ListModel `model`, newest first, saved in
+                       Quickshell.statePath("notifications.json"), historyLimit), the cards on screen (ListModel
+                       `banners`, each with its own paused-on-hover time), NEW / OLD (lastSeen), the screenshot
+                       pile, open / action / dismiss / hide / clearAll; `revision` bumps on any change
+island/
+  Island.qml           the springing surface (notch and dropdown card): a path shape (continuous corners,
+                       attached = notch flares), the active mode's size, the palette its content inherits
+                       (fill / text / secondary), keepSize (the card fading out), jumping (no spring)
   IslandMode.qml       base type for modes: active state, requestState, keyboard focus, Escape, transition
-modes/                 one file per island mode (what's shown inside the island; name = Activity kind)
-  AllModes.qml         every mode, by name, + which ones are panels: the one registration list
-  panels:      IdleMode  BatteryMode  WifiMode (symbol + network list, scans only while open)
-               BluetoothMode (rune + device list, discovery only while open)
-               SearchMode (scrollable, grouped results)  TimeMode (rolling time, date, day bar, week; seconds only while open)
-               QuickSettingsMode (round switches row: Wi-Fi, Bluetooth, Focus, mic, power; two level bands)
-               MediaMode (now playing: cover, title / artist, MediaBars, progress, previous / play / next)
-               WallpaperMode (carousel of the wallpaper folder's pictures: arrows pick, Enter applies)
-               ScreenshotsMode (carousel of screenshot.folder, newest first: Enter / click copies, drag out drops the file)
-  activities:  VolumeMode  BrightnessMode  MicrophoneMode  MessageMode  NotificationMode
-               LowBatteryMode  ChargingMode  WifiConnectedMode  HeadphonesMode  NowPlayingMode (alerts: Activity watches
-               Sys for the change, ignoring what is already there at startup, system.startupQuiet)
-               ScreenshotMode (niri's "Screenshot captured": the picture itself; click opens it)
-               GoodbyeMode (power off / restart: writes "bye bye" by hand, then lets the system go down)
-  calm:        CalmMode (the empty pill shell.qml shows instead of idle while Activity.calm; see Calm mode)
-widgets/               reusable pieces used by modes
+modes/                 one file per mode (name = Activity kind / dropdown name)
+  AllModes.qml         the notch's modes: RestMode (the small empty notch: hover grows it, click = center, a dot
+                       while notifications are new), MediaMode, VolumeMode, BrightnessMode, MicrophoneMode,
+                       MessageMode, LowBatteryMode, ChargingMode, WifiConnectedMode, HeadphonesMode,
+                       NowPlayingMode (cover, nowPlaying.gap, bars), GoodbyeMode
+  AllDropdowns.qml     the dropdowns: WifiMode, BluetoothMode, BatteryMode, CalendarMode, QuickSettingsMode,
+                       SearchMode, WallpaperMode, ScreenshotsMode
+widgets/               reusable pieces
   StyledText  Icon (every assets/icons SVG: `name` + `color`, drawn as a vector Shape)
-  Badge (concentric round/capsule badge, soft or solid; optional `label`: glyph + word capsule)  TitleStack (grey caption over white title)
-  Clock  IconSlot (pill + fade + click)  Battery (the idle one charging: white + a bolt, CutoutBadge)
-  CutoutBadge (a small glyph on a thing's bottom-right corner, the thing cut away around it by an inverted
-  MultiEffect mask: real transparency, fine on the blurred island; a hollow glyph needs its filled silhouette
-  as the cut, or the content peeks through the hollow)
-  CornerShape (one rounded screen corner, for ScreenCorners)
-  ArcGauge (the curved, ticked bar of the battery and time panels; look in `panel.arc.*`)
-  Wifi (dim bars + real level; idle island and Wi-Fi panel rows)  Speaker (same look for the volume)  Bluetooth (idle icon)
-  RollingNumber (odometer digits)  ScrollFade (a list's edge fades: island-color gradient, or an opacity mask
-  when the island is blurred)
-  LevelSlider (volume/brightness bar: drag, scroll; past the ends it bumps: grows a few px, springs back)  LevelRow (icon + LevelSlider + value: the
-  volume / brightness pop-ups and quick settings share it; drives Sys, bounces on Activity.bumped)
-  GlyphMotion (the Wi-Fi / Bluetooth panels' symbol motion: light-up, ripple, shake, opaque part colors)
-  ExpandPill ("Networks · 6 ⌄" pill that unfolds a panel's list)  RollingName (panel title that rolls)
-  PillButton (labelled soft / solid capsule toggle, e.g. "Power saver"; look in `panel.button.*`)
-  QuickToggle (round switch + one grey state word; the word can open a panel; `quickSettings.toggle.*`)
-  MenuBadge (a QuickToggle whose badge sinks when pressed, then morphs into a dropdown of choices:
-  position, size + corner on one non-overshooting spring, rows staggered in and clipped to the shape; the
-  mode blurs what's behind with its `t`; `quickSettings.power.menu.*`)
-  MediaBars (the "now playing" bars: real levels from cava, else a dance; move only while `running`)
-  MediaCover (the track's cover as a rounded tile, a note without one; media panel + NowPlayingMode)
-  PictureCarousel (the wallpaper / screenshots card row: selection spring, bump, press, drag / wheel, check
-  badge, optional drag-out of the front card as a real file drag; look in `carousel.*`)
-  PanelList (the Wi-Fi / Bluetooth list chrome: group titles, springing highlight, pointer selection,
-  scrolling, edge fades; look in `panel.list.*`; the panel brings the model, rows and scroll maths)
-assets/icons/          SVG icons, referenced by file name from the config (new ones: Material Symbols Rounded,
-                       filled). Drawn as vectors by widgets/Icon: <path> elements only, a viewBox, no transforms,
-                       no strokes (flatten in Inkscape; battery.svg's offset was moved into its viewBox)
-assets/sounds/         the island's sounds (WAV), generated by tools/make-sounds.py (edit and rerun it to retune them)
-assets/handwriting/    stroked SVGs written by GoodbyeMode (Config.handwriting, a ShapePath with `trim`): <path>
-                       elements in drawing order, a viewBox fitted to the line; stroke width/color come from config
-bin/screenshots        the screenshots panel's helper: `list` (newest first, sizes from headers), `transfer`
-                       (paths on stdin -> file transfer portal keys, for drag and drop into sandboxed apps)
-bin/wallpaper          lists the wallpapers, reads / sets the current one (Sys runs it): the Settings app's own
-                       swaybg line in ~/.config/niri/settings.kdl (rewritten whole, then swaybg restarted)
-tools/make-sounds.py   synthesizes assets/sounds (pure Python): layered soft sine tones, dark, one motif per
-                       alert, all at the same loudness
-tools/check-config.py  validates config.jsonc against schema.json, QML Config reads (also via aliases), section
-                       exposure in Config.qml, icons drawable by Icon
+  BarItem (a bar item: hover / open highlight, opens its dropdown, hover-switches while one is open)
+  PanelHeader (a dropdown's title + something at the right)  Switch (the header's on / off)
+  NotificationCard (one card: time, title, message, picture / app icon; urgent = red; screenshot = a pile;
+  hover = whole text, buttons, ×; drag / scroll up = away)
+  Badge  TitleStack  Battery  Wifi  Bluetooth (the bar's icons, always white there)  CutoutBadge (a glyph cut
+  into a thing's corner: the battery's bolt)  CornerShape  Speaker  LevelSlider  LevelRow  QuickToggle
+  MenuBadge  MediaBars  MediaCover  PictureCarousel  PanelList (the Wi-Fi / Bluetooth list chrome)
+  RollingName (the carousels' title)  ScrollFade (a list's edge fades, in palette.window)
+  RowHighlight (a list's lit row: springs while shown, fades out in place, jumps when it shows again)
+  MovedHover (a HoverHandler reporting only real pointer moves: a still pointer leaves the keys in charge)
+  DropZone (the drop zone's drawing: live in DropMode, muted as the empty shelf)  NotchTabs  Switch
+assets/icons/          SVG icons, referenced by file name from the config: Material Symbols Rounded, ALL filled,
+                       weight 400, optical size 20, from one source so their strokes match (2026-11-23: the set
+                       mixed Material icons on its 960 grid with others drawn on a 24 grid, heavier or lighter;
+                       the user: "make sure they are all at the same optical stroke length"):
+                       fonts.gstatic.com/s/i/short-term/release/materialsymbolsrounded/<name>/fill1/20px.svg.
+                       A new icon: the same URL, nothing else. One exception, the user's call (2026-11-24): the
+                       bar's quick settings icon is the outlined page_info (page-info-outline.svg, the URL's
+                       `default` instead of `fill1`). Kept as they were: battery.svg, gauge-balanced.svg,
+                       skip-triangle.svg (adjusted / derived), the distro logos. Phosphor was tried the same day
+                       ("looks off here"); SF Symbols can't be shipped (Apple's licence).
+                       Drawn by widgets/Icon: <path> elements only, a viewBox, no transforms, no strokes. A path
+                       starting with a relative "m x y" + more pairs works (Config._svg adds the "l")
+assets/fonts/          Allo (AlloVariable.ttf, OFL, assets/fonts/OFL.txt): axes opsz 9-32, wght 100-900, ROND 0-100
+assets/sounds/         the sounds (WAV), generated by tools/make-sounds.py
+assets/handwriting/    stroked SVGs written by GoodbyeMode
+bin/screenshots        the screenshots picker's helper: `list`, `transfer` (file transfer portal keys)
+bin/wallpaper          lists the wallpapers, reads / sets the current one
+tools/make-sounds.py   synthesizes assets/sounds
+tools/check-config.py  validates config.jsonc against schema.json, QML Config reads, section exposure, icons;
+                       RETIRED keys (what niri-settings may still write) only warn
+tools/readme-images.py the README's pictures (docs/*.png) from a staged scratch copy: see Release
+tools/scratch-copy.py  builds a safe test copy (stubbed commands, no keyboard, no reserved space, a grabbable
+                       `scene`, an optional Tester.qml): see Testing a change
 ```
 
 Import paths are relative folders: modes use `import "../services"`, `"../island"`, `"../widgets"`;
-widgets and island use `"../services"`. Quickshell generates the qmldir for plain folders; only `services/`
-has a hand-written `qmldir` (for the singletons).
+surfaces use `"../services"`, `"../island"`, `"../modes"`, `"../widgets"`. Only `services/` has a
+hand-written `qmldir` (for the singletons).
 
 ## Workflows
 
@@ -142,97 +154,86 @@ has a hand-written `qmldir` (for the singletons).
    Mark technical knobs `"advanced": true`. Types are listed in the schema's `types` block.
 3. `python3 tools/check-config.py --rewrite` lists it in config.jsonc, commented out at its default (don't
    hand-add active values there: an active line is the user's override, not a default).
-   A corner: never a raw `radius:` or a new radius setting; pick a role, `Config.corner("row", height)`
-   (see Island shape).
-4. A brand-new top-level section also needs `readonly property var foo: data.foo` in `services/Config.qml`
-   (otherwise every `Config.foo.x` is undefined at runtime).
+   A corner: never a raw `radius:` or a new radius setting; pick a role, `Config.corner("row", height)`.
+   A color that differs between light and dark: a `colors.light.x` + `colors.dark.x` pair, read as
+   `Config.theme.x` (white / black things that never change: `Config.colors.*`).
+4. A brand-new top-level section also needs `readonly property var foo: data.foo` in `services/Config.qml`.
 5. Run `python3 tools/check-config.py`; it must print `OK`.
 
-Section/group placement follows what the user would look for, not the code:
-Appearance (font, colors), Bar, Island (shape, layout, behavior), Animation (springs, content transition,
-small animations), Pop-ups (`activity.*`, the shared look), Panels (`panel.*`: what the battery, Wi-Fi and
-Bluetooth panels share: width, padding, symbol motion, list pill), then one section per mode. JSON paths stay grouped
-by the code that uses them. Editing the JSON files with a script: build the whole text first, then write it at once (temp file + rename;
-the live shell reloads on save and logs "config.jsonc is not valid JSON" if it catches a half-written file;
-harmless, it keeps the previous values; the same for schema.json since 2026-11-19: before, an unreadable
-schema rebuilt Config from no defaults and the island ran broken, every value undefined, until a QML
-reload). The live shell's log.log can stop updating after a flood of warnings: read the whole log with
-`qs log <by-id dir>/log.qslog`. config.jsonc isn't plain JSON: parse it with the checker's `jsonc()`.
+Section/group placement follows what the user would look for, not the code: Appearance (font, colors,
+light and dark), Bar (+ tray), Notch (`island.*`: shape, rest size, behavior), Animation, Pop-ups
+(`activity.*`), Dropdowns (`panel.*`: width, header, switch, lists, opening), then one section per
+dropdown / alert. Editing the JSON files with a script: build the whole text first, then write it at once
+(temp file + rename; the live shell reloads on save). schema.json is written with indent=2 and
+ensure_ascii=False (anything else rewrites the whole file). The live shell's log.log can stop updating
+after a flood of warnings: read the whole log with `qs log <by-id dir>/log.qslog`. config.jsonc isn't
+plain JSON: parse it with the checker's `jsonc()`.
 
-### Adding a new mode (panel)
-1. `modes/FooMode.qml`: root `IslandMode { ... }`, set `implicitWidth`/`implicitHeight` (from `Config.foo.*`),
-   lay out content at that size inside a padded `Item`. The base provides `requestState(name)`, `close()`
-   (Escape: holds the key, goes idle), `active`, focus handling. If the mode uses the keyboard, set `keyTarget`
-   (the item that takes focus: `mode` itself, or a `TextInput`); Escape then works by itself.
-   `autoClose` (stay open when the mouse leaves) and `escapeCloses` (false = Escape emits `escaped()` instead of
-   closing, e.g. to cancel a password field first) can be bindings: `autoClose: asking === ""`.
-2. Register it in `modes/AllModes.qml` with just `FooMode { name: "foo" }` (and add "foo" to its `panels`
-   list); Island wires the signals.
-   `requestState("foo")` goes through `Activity.openPanel`: a panel is the activity class `panel` in the queue.
-   Set `launcher: Config.foo.launcher` so it's listed in the search launcher, and add
-   `foo.launcher { title, subtitle, keywords, icon }` as an "In the launcher" group in schema.json.
-3. A way in: a clickable `IconSlot` in `IdleMode` (`onClicked: mode.requestState("foo")`; the clock opens the
-   time panel this way) and/or IPC (`qs ipc call island toggle foo` works for every registered mode).
-4. Its settings: a "Foo panel" section in schema.json (+ the Config.qml line), then `--rewrite`.
-   Optional per-mode transition tweaks: `foo.transition` (object) + `trOverride: Config.foo.transition`.
-5. If it's taller than `island.maxHeight`, raise that.
-6. Design: follow the design language below. Look at the user's references first (see Design).
+### Adding a dropdown
+1. `modes/FooMode.qml`: root `IslandMode`, `implicitWidth: Config.panel.width`, `implicitHeight` added up
+   from its parts (never a positioner), content in an `Item` padded by `Config.panel.padding`. Calm: a
+   `PanelHeader` (title + a `Switch` or a value) then the list (`PanelList`) or rows. Colors from the
+   palette (`palette.windowText` / `placeholderText` / `window`), the theme (`Config.theme.*`) or the
+   accents (`Config.colors.accent`...): never Config.colors.text for text, it's white in light mode too.
+   Keyboard: `keyTarget: mode`, Up / Down / Enter / Space; Escape closes by itself.
+2. Register it in `modes/AllDropdowns.qml` (`FooMode { name: "foo" }`) and add "foo" to
+   `Activity.dropdowns`. `launcher: Config.foo.launcher` lists it in the search.
+3. A way in: a `BarItem { dropdown: "foo" }` in Bar.qml (and add it to `anchorFor`, so the card hangs
+   under it), and/or IPC (`qs ipc call island toggle foo`). Not from the bar = under the notch.
+4. Its settings: a "Foo dropdown" section in schema.json (+ the Config.qml line), then `--rewrite`.
 
-### Adding an activity (something the system or a key puts up in the island)
-1. `modes/FooMode.qml`: root `IslandMode`. One-line activities are `island.restHeight` tall (read it from
-   `island`), two-line ones `Config.activity.tallHeight`. Register it inside `Island { }` with `name: "foo"`.
-   It may be narrower than `island.minWidth`: centre its content in the mode's width.
-   Register it in `modes/AllModes.qml`.
-   Its own entrance animation (a wiggle, a fill, a bounce) starts from `onAppeared` (IslandMode: the content
-   is on screen, `island.transition.contentStart` through its fade-in), never `onActiveChanged`: at
-   activation the content is still invisible (handoff + fade), so the mic's wiggle played unseen. Before
-   `appeared`, hold the start pose (empty fill, small icon); `hasAppeared` tells whether it's on screen.
+### Adding a notch activity (something the system or a key puts up)
+1. `modes/FooMode.qml`: root `IslandMode`. One-line activities are `island.restHeight` tall
+   (= island.activityHeight), two-line ones `Config.activity.tallHeight`; something as small as the
+   resting notch sets `belowMinimum: true`. Register it in `modes/AllModes.qml`.
+   Its own entrance animation starts from `onAppeared`, never `onActiveChanged` (at activation the content
+   is still invisible). Before `appeared`, hold the start pose; `hasAppeared` tells whether it's on screen.
    Something the system triggers just before the pop-up (Activity.bumped) is sent after `feedback` and held
    until it's on screen (LevelRow `starting` / `live`).
 2. Show it through Activity: `Activity.show("foo", key, cls, data, timeout)`. Same key = updates in place;
    `cls` is its priority class, listed in `island.priority` (config + schema description). Keep user
-   interaction (key feedback, `panel`) above system things. Covered activities keep their remaining time.
-   Give it a `foo.enabled` setting (default true, active in config.jsonc) checked where Activity shows it:
-   every activity can be switched off (the settings app lists them).
-3. Data and actions still go through Sys. A mode that shows Activity data latches it on
-   `Activity.onCurrentChanged` (see MessageMode), so it stays right while fading out.
+   interaction above system things, nowPlaying last. Give it a `foo.enabled` setting (default true, active
+   in config.jsonc) checked where Activity shows it.
+3. Data and actions go through Sys. A mode that shows Activity data latches it on `Activity.onCurrentChanged`
+   (see MessageMode), so it stays right while fading out.
 4. Keys: niri binds `qs ipc call osd ...` (Activity's IpcHandler). Caps lock was dropped on purpose: only
    polling can see it, and the user won't trade deep CPU idle for it.
+Notifications are not notch activities: they go through Inbox (cards + center).
 
 ### Testing a change
-- The running shell live-reloads on save. Its log: the newest `/run/user/1000/quickshell/by-id/*/log.log`
-  that doesn't mention the scratchpad (test copies write logs there too). A reload while files are half-edited
-  can fail or warn ("X is not a type", "undefined"); Quickshell keeps the old version running. `touch shell.qml`
-  triggers a clean reload; judge only warnings timestamped after it.
-  Find the live log with `grep -l Reloading .../by-id/*/log.log` (newest): short scratch-copy logs don't always
-  mention the scratchpad. Editing only an SVG (assets/icons) doesn't reload the shell, and neither does `touch`
-  or rewriting a file unchanged: add then remove a newline at the end of shell.qml.
-- Quick load check: `timeout -s INT 4 qs -p . 2>&1 | grep -E "WARN|ERROR"` (SIGINT so the output flushes).
-  A second instance can't own the notification name ("Could not register notification server": expected).
-  The SIGINT also ends a bash `&&`/`;` chain it's part of: run follow-up commands in a separate call, or launch
-  test copies in the background `(timeout -s INT 8 qs -p <copy> >/dev/null 2>&1 &); sleep 9`.
-- **Scratch copy** (the default way to test): copy `assets config island modes services tools widgets shell.qml ScreenCorners.qml`
-  to the scratchpad, replace every `search.actions[].command` and `search.files.open/revealCommand` with
-  `["true"]`, then drive it from Timers added before `IdleMode {` in the copy's shell.qml: `root.open("wifi",
-  true)`, `Activity.feedback(...)`, `Activity.show(...)` (a fake notification is a plain JS object with the
-  Notification fields + expire/dismiss), set fields on modes (give them an `id` in the copy). Expose internals
-  for the test with `readonly property var listView: view` in the copy only. Logs: `console.warn`
-  (`console.log` is hidden).
-- Fake data for stress tests goes in the copy's Sys (e.g. push 20 fake networks into `wifiNetworks`) so the
-  real UI code runs on it. Nothing in a test may connect, run commands or change the system.
-- Images: `island.grabToImage(r => r.saveToFile(...))` (grabToImage doesn't work on a PanelWindow's
-  contentItem). It captures on the next frame: don't change state in the same handler after calling it.
-  Tile frames with PIL. Prefer this to `niri msg action screenshot-screen`, which also overwrites the user's
-  clipboard (their next paste becomes our screenshot).
-- Real input: `qs ipc call island toggle <mode>` is harmless (no keys), but it's a *toggle*. Never send real
-  keys (`wtype`) while testing: if the mode was already open it closes and the keys land in the user's terminal.
-  The real mouse wheel / hover can't be tested from here: test the maths instead (map a scene point, compare
-  the row the code picks with the row actually drawn there) and say so.
-- Measure before fixing "it feels slow/buggy": count how often a property changes (a `Connections` counter over
-  a few seconds), time an action with `Date.now()`, benchmark one delegate built several ways in a tiny
-  standalone `ShellRoot { FloatingWindow { ... } }` with `createObject` in a loop. Report before/after numbers.
-- Transitions: Timer that switches modes repeatedly + `grabToImage` every ~30 ms, tiled into one image. Always
-  check several switches in a row (see gotchas).
+- The running shell live-reloads on save (it runs whatever is on disk, mid-edit included). A new schema
+  section (or a new `readonly property var foo: data.foo` in Config.qml) can reload with the old
+  settings: every new Config.foo.* read undefined, and on 2026-11-23 the shell then spun at 100 % CPU,
+  frozen (no IPC, no notifications). After adding a section, check the live log; if it says "Cannot read
+  property ... of undefined", restart it: `kill <pid>; setsid -f quickshell` (Island now ignores NaN sizes).
+  A test copy given a new section while running DID get it (2026-11-24): the trigger of the stale case is
+  still unknown, so no "fix" was kept. Its log: the
+  newest `/run/user/1000/quickshell/by-id/*/log.log` with "Reloading" in it; `touch shell.qml` triggers a
+  clean reload, judge only warnings after it. Editing only an SVG doesn't reload: add then remove a newline
+  at the end of shell.qml.
+- Quick load check: `timeout -s INT 4 qs -p . 2>&1 | grep -E "WARN|ERROR"` (SIGINT so the output flushes;
+  "Could not register notification server" is expected for a second instance).
+- **Scratch copy** (the default way to test): `python3 tools/scratch-copy.py <scratchpad>/copy --tester
+  T.qml [--shelf DIR] [--light]` builds it: every command stubbed (search actions, files, the bar menus,
+  the shelf's trash / clipboard), Sys's sounds / wallpaper / opening stubbed (they log "TEST ..."), the
+  user's config.jsonc left out, its own shelf folder, `exclusiveZone: 0` (else the user's windows move)
+  AND `keyboardFocus: None` (an open dropdown takes the keyboard exclusively: on 2026-11-23 the user's
+  typing reached a test copy's Wi-Fi dropdown and Space switched their Wi-Fi off and on), the visual
+  children in `Item { id: scene }`, and T.qml as a `Tester {}` (Timers: `Activity.open("wifi")`, `Activity.feedback(...)`, `Activity.show(...)`,
+  `Inbox._insert(row) + Inbox._showBanner(uid, 0)` for fake notifications, `Inbox._screenshot({ summary },
+  path, w, h)` for the pile). Run a step, wait ~1 s, `scene.grabToImage(...)`, run the next step from the
+  grab's callback (grabbing then changing state in the same handler captures the new state). The grab is
+  transparent: composite it over a wallpaper with PIL. A test-copy history / pins live in its own
+  `~/.local/state/quickshell/by-shell/<id>`: delete that folder afterwards. Logs: `console.warn`.
+- Light mode: `--light` (never the user's gsettings).
+- Fake data for stress tests goes in the copy's Sys. Nothing in a test may connect, run commands or change
+  the system. Never `niri msg action screenshot-screen` (it overwrites the user's clipboard).
+- Real input: `qs ipc call island toggle <name>` is harmless but a toggle. Never send real keys (`wtype`).
+  The real mouse wheel / hover can't be tested from here: test the maths instead and say so.
+- Measure before fixing "it feels slow/buggy" (property-change counters, `Date.now()` timings, standalone
+  benchmarks). Report before/after numbers.
+- Transitions: a Timer switching repeatedly + `grabToImage` every ~30 ms, tiled. Check several switches in
+  a row.
 
 ## Rules
 
@@ -270,10 +271,8 @@ reload). The live shell's log.log can stop updating after a flood of warnings: r
   a role for sections, the delegate can read its data from the JS array by `index` (see SearchMode).
 - Don't cap lists for layout reasons: grow up to a `visibleRows` setting, then scroll (the user wants the free
   Wi-Fi 20 rows down to be reachable). Edge fades (`scrollFade`) show there's more: `widgets/ScrollFade.qml`
-  over the ListView, plus `layer.enabled: edgeFade.masked; layer.effect: edgeFade.effect` on it. Opaque island:
-  gradients in the island color (free). Blurred island: that band would be a dark stripe over the blur, so the
-  list fades through a MultiEffect mask (its layer exists only while blur is on). The mask needs
-  maskThresholdMin 0.5 + maskSpreadAtMin 1 for a smooth ramp (the defaults show any alpha above 0 fully).
+  over the ListView, gradients in the surface's color (palette.window). (A MultiEffect mask, used while the
+  island could be blurred, needs maskThresholdMin 0.5 + maskSpreadAtMin 1 for a smooth ramp.)
 - Keyboard scrolling: compute row positions yourself (headers, row height, an expanded row) and animate
   `contentY` to them, clamped to the content; ListView only estimates rows it hasn't created. Reveal on keyboard
   moves only, never on hover. Scrolling with the wheel re-selects the row under the pointer; the keyboard's own
@@ -318,17 +317,18 @@ reload). The live shell's log.log can stop updating after a flood of warnings: r
   `qs` ignores SIGINT and stays on screen.
 
 ### Text: always `StyledText`
-The font ships with the island (2026-11-17, for the public release): assets/fonts/GoogleSansFlex-Variable.ttf
-(OFL 1.1, assets/fonts/OFL.txt), loaded by Config's FontLoader (font.bundled) before any text asks, so
+The font ships with the shell: Allo (assets/fonts/AlloVariable.ttf since the bar redesign, 2026-11-23;
+Google Sans Flex before; OFL 1.1, assets/fonts/OFL.txt; axes opsz 9-32, wght, ROND), loaded by Config's FontLoader (font.bundled) before any text asks, so
 it looks the same without the font installed. A font file loaded by the app registers only its default
 weight: every text also sets the variable `wght` axis to its weight, next to `ROND` (StyledText does
 it by hand in _syncAxes: a binding reading font.weight into the same font looped; the two TextInputs and
 RollingNumber's metrics set both axes). Checked with a fontconfig that hides ~/.local/share/fonts:
-bundled = semibold Google Sans Flex, identical to the installed one; without it, Noto Sans. The file is a
+(checked 2026-11-17 with Google Sans Flex) the bundled file renders like the installed one; without it,
+Noto Sans. The file is a
 `fontFile` setting: check-config.py fails if it's missing from assets/fonts.
 Never a bare `Text {}`. `widgets/StyledText.qml` applies `Config.font` (family, size, weight, color, and
-`roundness` = the font's `ROND` axis via `font.variableAxes`; Google Sans Flex, the default since 2026-11-13,
-rounds its letter ends). One font everywhere: never give a mode its own font family or roundness (the user
+`roundness` = the font's `ROND` axis via `font.variableAxes`, rounding the letter ends; `opsz` follows the
+size: Config.axes(size, weight)). One font everywhere: never give a mode its own font family or roundness (the user
 said so); only size/weight/color are overridden per use.
 Only override what differs (`font.pixelSize: Config.activity.titleSize`, `color: Config.colors.secondary`).
 Never hardcode a font family. (`TextInput` can't use it: set its font from `Config.font` by hand, `variableAxes` included.)
@@ -356,44 +356,181 @@ activities, Raycast-style launchers, macOS Control Center, dark lists). Pasted i
 `curl -sL -A "Mozilla/5.0" <url>`, grep `https://cdn.cosmos.so/<uuid>`, download with `?format=jpeg&w=900`
 (a single pin `cosmos.so/e/<id>` has its image in `og:image`). Look at them before designing a mode.
 
-### Language (shared look, not a shared template)
-Each mode keeps the layout that suits it, but they all follow these rules. Shared values: `Config.activity.*`
-("Pop-ups" section) and `Config.colors.*`.
-- Content hugs both ends, the middle stays empty: a leading glyph or badge at the far left, a trailing value at the
-  far right (`activity.edge` from the edge).
-- One-line activities are exactly `island.restHeight` tall (the island only widens); two-line ones are
-  `activity.tallHeight`.
-- Badges (`widgets/Badge.qml`) sit `activity.inset` from the edge with height `restHeight - 2 * inset`, so they're
-  concentric with the island's rounded end. Soft = tint at `activity.badgeOpacity`; solid = "this is on", its glyph white on a dark or saturated
-  fill (blue, red) and black on a light one (yellow, green, white): `Config.onColor(fill)`, Badge's default (muted
-  mic, power saver on, Wi-Fi on, the active power mode).
-- Two lines = `widgets/TitleStack.qml`: grey caption (`colors.secondary`) above a white title.
-- Each activity has an accent, used for its glyph and trailing value: red = danger/muted, yellow = power saver,
-  green = charging, blue (`colors.accent`) = Wi-Fi/info/connected. Titles stay white. Never dim text with opacity
-  for "secondary": use `colors.secondary`.
-- Signal/level icons use the idle look: the full icon dimmed (`idle.overlayOpacity`) with the real level bright
-  on top (`widgets/Wifi.qml`, `Battery.qml`).
+### Language
+Each piece keeps the layout that suits it, but they all follow these rules.
+- The bar: white icons and text (`Config.colors.text`) always, whatever the light / dark mode, over the
+  gradient (bar.gradient: Apple's trick, readable on any wallpaper). The shade follows a curve,
+  opacity * (1 - y)^curve over nine stops (0.3 at the top, ~0.2 behind the icons, a long soft tail over
+  110 px): a straight two-stop fade ended in a visible line (the user, 2026-11-23). Status icons use the "dim base +
+  bright level" look (bar.overlayOpacity: Wifi, Battery). A BarItem lights a pill behind it on hover and
+  while its dropdown is open; hovering another item while a dropdown is open switches to its dropdown
+  (like the macOS menu bar).
+- The notch: black, white text; pop-ups follow the activity language: content hugs both ends, the middle
+  stays empty; one-line activities are `island.restHeight` tall, two-line ones `activity.tallHeight`;
+  badges concentric with the notch's rounded end (`activity.inset`), soft (tint at `activity.badgeOpacity`)
+  or solid ("this is on", glyph from `Config.onColor`); two lines = TitleStack (grey caption over white).
+  Each activity has an accent: red = danger / muted, yellow = power saver, green = charging, blue =
+  Wi-Fi / info / connected. Never dim text with opacity for "secondary": use the secondary color.
+- The dropdowns (2026-11-23, the user: "simpler and calmer, just a little toggle and the list, not a full
+  huge icon"): the macOS menu's calm. A title at the left and a switch (or the value) at the right
+  (PanelHeader), then the list with small grey group titles, a springing highlight, a blue check on what's
+  in use. No big symbols, gauges or pills: the big instruments of the island era (the battery's arc gauge,
+  the Wi-Fi and Bluetooth symbols drawn as strokes, the time panel's day arc) were removed with it.
+  Light / dark from the desktop (Config.theme); accents stay the same, except the light theme's darker
+  charging green and power saver yellow (theme.charging / theme.powerSaver).
+- The cards (notifications, 2026-11-23, the user's reference: an "Alerts 3" pill under a notch, NEW / OLD
+  chips, white cards with the time in grey on top, the title, a picture at the right): the theme's card
+  color (white in light mode), a soft shadow, `menu` corners; urgent ones filled red, text white.
 
-### Panels (same language, bigger)
-- Battery panel height comes from its content (number, "Full in", bar, `battery.gauge.saver.gap`, button):
-  a fixed height setting broke the layout whenever a size changed.
-- Battery (2026-11-13, "an instrument": bold, simple, a bit playful; refs: a ruler with a tag above its
-  needle, a timer's filled arc band): a thick band bent into a gentle arc (`battery.gauge.arc.bend`), filled
-  in the accent up to the level with the band's own rounded ends (100 % covers it exactly; the white needle was
-  removed so it matches the Wi-Fi symbol, 2026-11-13);
-  a few chunky ticks, cut into the fill and grey on the empty part; on top, centred, the real percentage,
-  `widgets/RollingNumber.qml` with a subtle roll when the level changes (it doesn't follow the
-  needle or count up with the sweep: the user asked for that); in grey under it, "Full in 1h 20m" while charging (`Sys.batteryTimeToFull`), "3h 10m left" on battery (`Sys.batteryTimeToEmpty`), each
-  its own minute-rounded int. One labelled
-  "Power saver" capsule (PillButton) centred under it (solid yellow when on, Space toggles; a round icon-only
-  badge felt empty and unclear). No caption text. Opening sweeps the
-  needle from 0 with the fill (one spring). Rejected along the way: a fine ruler with a lens
-  swell (too detailed) and a big odometer number (too much). The three power modes left the panel on
-  purpose: they belong in the planned quick settings. Settings `battery.gauge.*`. The previous panel
-  (live-activity card + three capsules) was deleted once this one was accepted.
-- Tried and rolled back (2026-11-13): the panel's button top left + a close badge top right (battery, Wi-Fi).
-  It broke the centred one-number / one-instrument / one-button composition, the × was redundant (mouse
-  leave, click outside, Escape all close), and a corner ⏻ read as system power. Keep the button centred.
+### The bar
+- bar.height 38 with the notch at 32 (2026-11-23: the notch touching the windows felt wrong while music
+  played; the user said "taller bar or smaller notch, pick one": the bar, because a smaller notch would
+  shrink the music's cover to a speck).
+- Left: the distribution's logo (Sys.distro from /etc/os-release, bar.logo.icons -> Simple Icons logos;
+  its menu, "system": Files, Settings, Search, Wallpaper, Screenshots, Notifications, then Lock / Log out /
+  Restart / Shut down, the last three asking for a second click), the focused app's name (Sys.focusedApp,
+  bold; its menu, "app": the window's title, Fullscreen, Maximize, Float, Center, Close, by niri id {id};
+  niri has no minimize). Rows follow the window (2026-11-24, "it stays maximize even when maximized"):
+  a menuList row with `state` shows `onTitle` / `onIcon` while Sys.focusedState[state] is on (Float ->
+  Tile, Maximize -> Restore, Fullscreen -> Exit fullscreen). niri gives is_floating; fullscreen and
+  maximized are measured (window = output size; column >= bar.appMenu.maximizedShare of its width) and the workspaces (Sys.workspaces, dots, the active one a longer pill). Both menus
+  are MenuMode with a menuList setting (bar.logo.items / bar.appMenu.items).
+  Sys.focusedApp falls back to the focused workspace's active window: while the bar's window has the
+  keyboard (a dropdown open) niri reports no focused window, and the app's name vanished (2026-11-23).
+- Workspaces: ONE TapHandler (the BarItem's) decides from where the click landed (dots.itemAt(i).contains):
+  on a dot = focus-workspace, elsewhere = toggle-overview. A dot's own TapHandler fired and then the item's
+  too: it switched, then opened the overview (2026-11-23). Each dot's target includes half the gap.
+- Hover only promises what a click does (the user asked, 2026-11-23): BarItem lights its pill and shows the
+  hand only when `clickable` (by default: it has a dropdown). Anything passive in the bar must not. Tray
+  icons: a click (left or right) opens the app's menu when it has one (macOS menu bar extras; DashBeam did
+  nothing on "activate"), else its main action; middle click = the main action; clickable =
+  Sys.trayClickable. The menu is drawn by the shell: the "tray" dropdown (TrayMenuMode, Activity.trayId
+  = which app; QsMenuOpener over Sys.trayMenu(id); submenus with a Back row; mnemonic _ / & stripped),
+  under its icon (Bar.anchorFor("tray")), hover-switching between tray icons like the rest
+  (BarItem.lit / switchable, Bar.aimTo("tray:<id>")). The system's own drawing (item.display) needs
+  `//@ pragma UseQApplication` (Quickshell as a widgets app): without it, it silently did nothing.
+- List highlights in every dropdown follow one rule (2026-11-23): shown while the pointer is over the
+  list, or after an arrow key (then it stays); when the pointer leaves, it fades out where it is (its
+  row is kept: dropping to the first row slid it up while fading), and when it shows again it jumps to
+  its row instead of sliding from the old one (the y Behavior is off while invisible). PanelList.keyShown,
+  BatteryMode / MenuMode / TrayMenuMode shownRow, MenuBadge shownRow + _byKey.
+  One selection per list, driven by both: the pointer sets it only when it really moves (its scene
+  position changed: HoverHandler.onPointChanged + lastScene, never plain hover), so with the pointer
+  resting on a row the arrow keys take over, and its next move takes the highlight back (the user,
+  2026-11-23). A key with the pointer inside moves at once; with it outside, the first key only shows the
+  highlight (on the first usable row if it sat on a greyed one).
+- Switching dropdowns along the bar waits while the pointer heads into the open card (Bar.aimTo, the
+  "menu aim" triangle: from where the pointer came from to the card's top corners widened by bar.aim.slack;
+  inside it, wait bar.aim.delay and switch only if the pointer stopped on the other item). Measured in a
+  scratch copy: quick settings -> down-left across the battery = aiming (waits); sideways along the bar =
+  switches at once. shell.qml also adds the gap between the bar and the card to the window's input
+  (bridgeArea), so the pointer never crosses "nothing" on the way down.
+- Right, in order: tray (Sys.trayItems; click = activate, or the menu for menu-only items; right click =
+  the item's own menu via `item.display(window, x, y)`, drawn by the system; tray.monochrome off by
+  default: colorizing an icon drawn on a filled square gave a white square), Bluetooth (dim while off),
+  Wi-Fi (bars; wifi-off.svg while off), battery (white always, the bolt / plus cut into its end:
+  bar.battery.badge; the user: "keep system icons white at all time"), quick settings (tune.svg), the
+  clock (bar.clock.dateFormat "ddd d MMM" + the time). No volume icon (the user: "no sound slider in the
+  top bar"): the volume is in quick settings and the notch.
+- Fullscreen (Sys.fullscreen: the active window of the active workspace is the output's logical size,
+  overview closed): the bar slides up and fades (bar.hideInFullscreen); the notch stays.
+- The window reserves bar.height; it is the whole screen tall so the dropdowns and cards hang below
+  the bar in the same window (one keyboard focus, z order by declaration: bar < cards < dropdown < notch).
+
+### The notch
+- What it is (2026-11-23, second design round): what happens now AND what it holds. Notifications left it
+  for the clock (the user agreed: macOS pairs them with the calendar).
+- At rest (RestMode): island.rest.width x height (120 x 28: "a bit less wide and less tall, so it's
+  calmer when it has nothing"); the music keeps its own 140 x 32 (nowPlaying.width / height).
+- Opening the notch (2026-11-23, after a peek design was tried and dropped: "no preview mode at all";
+  hover opening was dropped too, "click only"): a click on the resting notch or the music opens the real
+  player (MediaMode) or the real shelf (ShelfMode), Activity.openNotch: the shelf when something was put
+  on it in the last island.tabs.recent s (Sys.shelfTouched), else the player when music plays, else the
+  shelf. When both have something (Activity.notchTabs), tabs show in a small black pill of their own
+  just under the open notch, NookNotch-style (the user's reference, 2026-11-23; a navbar inside the notch
+  came first): widgets/NotchTabs in shell.qml, riding the notch's bottom edge (y = island bottom +
+  island.tabs.gap), in the window's input mask (tabsArea). The open tab shows its icon and name ("Music",
+  "Shelf"), the other its icon. Switching (2026-11-23, "animate the tabs better"): the old name fades out
+  at once, widths / the lit pill / the icon's place ease (island.tabs.resize, InOutCubic: springs read as
+  jumpy here), the new name fades in after island.tabs.labelDelay (an imperative animation: a Behavior's
+  timing can't depend on the change it animates). A click or Tab switches, the notch morphing between
+  the two sizes. Chosen over stacking both (a ~450 px slab every click). No hover effect at all
+  (a widening on hover was removed: the music's cover and bars snapped to the new width while the notch
+  eased).
+- The drop area is not the notch (shell.qml's DropArea `dropZone`, 2026-11-23): sized like the notch,
+  but while a drag is over it, held at the size the notch had when it came (or the drop zone's, if
+  bigger), in the input mask (dropHold), and a drag must stay out island.drop.leaveDelay to count as
+  gone. As part of the notch, dragging over the big open shelf looped: the notch shrank to the drop zone,
+  out from under the pointer, the drag "left", the shelf grew back under it, the drag "entered"...
+- The empty shelf is the drop zone, muted (2026-11-24, "smaller, just the drop area but muted"):
+  widgets/DropZone is the zone's drawing, live in DropMode (accent arrow bobbing), muted in ShelfMode when
+  empty (grey, still, island.drop.mutedOpacity, at the zone's size).
+- The drop zone (DropMode, class "drop", first in island.priority; 2026-11-23: "more inviting, and not as
+  big"): while something is dragged over the notch (Activity.dropping) it's a 280 x 92 notch with a
+  dashed outline, a bobbing download arrow, "Drop to keep it" and the folder's name. Dropped: bin/shelf
+  add, then Sys.shelfAdded opens the shelf focused on the new file (Sys.shelfFocus).
+- The shelf (ShelfMode, notch panel "shelf"; 2026-11-23: "the island holds screenshots. it should have
+  a folder dedicated to it"): the files of shelf.folder (~/Island), newest first, in PictureCarousel
+  (the old screenshots picker's interface, which it replaced). Two ways in: dropped on the notch (a
+  DropArea over the Island in shell.qml: Activity.dropping opens the shelf, "Drop to keep it here";
+  bin/shelf add copies files, downloads http(s) addresses, "name 2.ext" for taken names, the copy dated
+  now so it sorts as new) and every screenshot (Inbox._screenshot -> Sys.shelfKeep -> bin/shelf keep: a
+  hard link, no extra space, else a copy). Each card: a picture as itself, else the desktop's thumbnail
+  (bin/shelf list runs the installed /usr/share/thumbnailers into ~/.cache/thumbnails/large, the
+  freedesktop cache Files uses: PDFs, videos, office files, fonts), else the type's icon + name
+  (PictureCarousel previews / icons / names; carousel.file.*). The icon is found by bin/shelf in the
+  gsettings icon theme, then Adwaita, hicolor: Quickshell.iconPath(name, true) returned "" for every
+  type icon (it doesn't know the desktop's theme; app icons work because they're in hicolor).
+  Click / Enter = open, right click / Shift+Enter = show in Files, Ctrl+C = copy a picture, Delete or the
+  dark × on the front card (PictureCarousel.removeIcon: drawn in the card, so it moves with it; the
+  carousel's own tap ignores it) = shelf.removeCommand. Removing: the card shrinks and fades
+  (PictureCarousel.leavingPath, carousel.leave.*), then it's taken off Sys.shelf at once (no wait for the
+  trash and a re-read), the selection stays at its place and the card taking it slides in from its side
+  (PictureCarousel.relocate; before, followNewest jumped back to the newest) (gio trash: never deleted outright), drag the front card
+  out = the file (portal key for sandboxed apps, as before). Real drops from other apps onto the notch
+  are untested from here (they need a real drag).
+  Listing never waits for thumbnails (2026-11-23: the shelf opened "empty", focused on nothing, for the
+  second a dropped PDF's preview took): `bin/shelf list --cached` comes at once, `bin/shelf thumbnails`
+  then makes the missing ones and the folder is read again; a dropped file is put at the front of
+  Sys.shelf the moment the copy is done. It grows island.rest.hoverGrow under the pointer (it can be clicked) and a
+  click toggles the notification center; a small dot (colors.notificationDot) while some are new.
+- The music (NowPlayingMode, 2026-11-23): the base layer, nowPlaying last in island.priority: shown the
+  whole time music plays, every alert covers it, then it comes back; paused, it stays nowPlaying.linger s.
+  nowPlaying.width x height (140 x 32), cover at the left, bars at the right. Not while you're in the player (nowPlaying.hideWhenFocused,
+  Sys.mediaFocused): the MPRIS player's desktop entry / identity against niri's focused app id; for a
+  browser (nowPlaying.browsers) the tab in front must be the playing one, judged from the window's title
+  (= the active tab's): it holds the track's title, or a music site's name (nowPlaying.musicSites; Zen on
+  YouTube Music titles its window just "YouTube Music — Zen Browser"). Can't tell = keep showing it. Click = the media controls (MediaMode) grow out of the notch.
+- Pop-ups (volume, brightness, mic, alerts, messages, goodbye): as before; the notch grows to
+  island.activityHeight (38) for them.
+
+### Dropdowns
+- One card (surfaces/Dropdown.qml) hosts them all with the island engine: switching from one to another
+  morphs the card (size, and place under the new icon: anchorX spring) while the contents only crossfade
+  (Island.plainFade: no scale-to-fit, no pop, no blur; 2026-11-23, the user: "just fade and morph": Wi-Fi
+  and the calendar used to pop in with the notch's scale). Opening from nothing jumps to the right size and
+  place and fades in; closing fades out in place (Island.keepSize holds the size; the anchor isn't moved
+  for "": it slid to the screen's middle as it faded). Centred under its bar item,
+  kept panel.margin inside the screen; search / wallpaper / screenshots hang under the notch.
+- Closing: Escape, a click outside (the click-catcher layer on the Top layer, mapped while
+  Activity.anyOpen), clicking its icon again. No auto-close when the mouse leaves (Mac menus don't).
+- Wi-Fi / Bluetooth: "Wi-Fi" + switch, then PanelList (saved, then others; Wi-Fi's password field inline
+  under its row, Bluetooth's pairing / connecting states, as before). Nothing found yet: "Searching…".
+  Scanning / discovery only while open (Binding on Sys.wifiScan / bluetoothScan).
+- Battery: "Battery" + the percentage (green while charging, red when low), the time left / to full /
+  "Fully charged" in grey, then "Power mode" and the three modes as rows (icon, name, check; Up / Down /
+  Enter).
+- Calendar (2026-11-23, replaced the time panel): the month (Sys.calendarMonth(offset)), ‹ › and the wheel /
+  Left / Right move months, a click on the title comes back (a tap area over the title only: on the whole
+  header it also caught the arrows, and › never left the year); weekday letters; six weeks always (constant
+  height); today in a time.accent circle; optional week numbers.
+- The wallpaper picker lives in the notch too (2026-11-24, the user's call; it's the shelf's carousel
+  sibling): a notch panel, not a tab (it's reached from the logo's menu, the launcher, IPC). Its title
+  and the shelf's share panel.nameSize (16).
+- Search lives in the notch (2026-11-23, decided with the user over a vertically centred floating card:
+  the notch is the place you talk to the system, and it was a notch mode once already): a notch panel
+  (Activity.notchPanels), dark like the notch, growing downward with its results; the notch Island's
+  extraModes = the dropdowns', so the launcher still lists them. The tabs pill hides while it's open.
 - Search: Raycast-style launcher: magnifier, hairline, results grouped under grey section titles (groups ordered
   by best match), icons on soft rounded tiles, kind at the right, "Open ↵" keycap on the selection; scrolls.
   Pins (2026-11-15): with nothing typed it shows the pinned panels / apps / commands as tiles (icon + name,
@@ -421,32 +558,10 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   (search.web.browserCommand) matched against niri's windows like a notification's sender (_senderWindow),
   its most recently focused window gets niri's focus-window;
   alone, it's what Enter picks. Not pinnable, not in file search.
-- Wi-Fi (2026-11-13, the battery panel's language): the network's name on top, centred (rolls when it
-  changes); the Wi-Fi icon as the instrument: wifi3.svg's dot + two round-capped arcs
-  redrawn as strokes with the icon's own measured proportions (24-unit grid: dot r 2.5 in the icon, 2.2 here as an optical correction (a solid dot reads bigger than the arcs), arcs 3 thick, radii
-  9.9 / 15.75 around a centre 2.8 below the dot (3.2 here: the smaller dot sits a hair closer to the arcs), 73° / 78° wide) times `wifi.hero.glyph.scale`. The dot is the
-  first bar, like the small icons. Opening / joining fades the parts from grey to blue, dot first (only the
-  color moves: shrinking a round-capped arc stalls as a dot, then pops); searching / connecting runs a ripple
-  out through them; a failed join shakes it red. Tried and rejected: a filled wedge with stripes (the user
-  preferred the strokes). The symbol is the Wi-Fi switch (click or Space; brightens on hover, sinks on
-  press; off fades the lit bands back to grey, outer first); no separate button (it took ~55 px for a rare action). A pill "Networks · N" unfolds the
-  list (saved, then others; rows with bars, lock, blue check / "Connecting…" / red error; password field
-  inline under its row, × / Escape / arrows cancel); Up/Down/Enter unfold it from the keyboard; scrolls past
-  `panel.visibleRows`. Settings `wifi.hero.*` (glyph, texts), `panel.*` (shared), the row/list `wifi.*` keys. The previous Control Center-style panel was deleted
-  once this one was accepted.
-- Bluetooth (2026-11-13, the Wi-Fi panel's sibling): the connected device's name on top; the Bluetooth rune
-  redrawn as round strokes with bluetooth.svg's proportions (24-unit grid: stroke 2, stem 16, chevrons 4 right,
-  arms 5.6 left, `bluetooth.hero.glyph.*`) in 3 parts (stem, upper zigzag, lower zigzag), blue while a device is
-  connected; the rune is the switch; a pill "Devices · N" unfolds "My devices" (paired; connected first) then
-  "Other devices" (named devices found by discovery; "Searching…" until one shows up); rows with a device-kind
-  icon, battery % when reported, "Pairing…" / "Connecting…" / red error, blue check. Click: connect a saved
-  one, pair + trust + connect a new one, disconnect a connected one (`bluetooth.clickDisconnects`). Sys tracks
-  the attempt (paired / state signals + `bluetooth.attemptTimeout`). No BlueZ agent is registered, so devices
-  that need a PIN or a code to confirm can't pair (they fail); the rest pair "just works". Ways in: launcher,
-  `qs ipc call island toggle bluetooth`, the idle Bluetooth icon (any device connected,
-  headphones included). The previous Control Center-style panel was deleted once
-  this one was accepted.
-- Quick settings (2026-11-14): nothing boxed, like the other panels (a grid of grey Control Center tiles was
+- Quick settings dropdown (the bar's quick settings icon; designed 2026-11-14 as an island panel, the
+  same inside the dropdown card since 2026-11-23, plus the sound output line). What follows is its
+  original description; "panel" = the dropdown, "island" = the card:
+  Quick settings (2026-11-14): nothing boxed, like the other panels (a grid of grey Control Center tiles was
   built first; the user found it foreign: cards, equal weights, text everywhere, left-aligned). One centred
   row of round switches (activity-badge look, solid = on): Wi-Fi, Bluetooth, Focus (= do not disturb),
   microphone (solid blue = live; soft white, crossed out = muted), power mode; every "on" is the same blue
@@ -462,9 +577,7 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   (`Activity._inQuickSettings`): volume / brightness (the bars bounce instead), mic, Wi-Fi connected,
   Bluetooth headphones. Wired headphones, battery and notifications still pop up. Calm mode will be a sixth switch once it exists.
   Its padding is its own (`quickSettings.padding` 28, more air around small things than `panel.padding`).
-  Badge click = toggle; the word under Wi-Fi / Bluetooth opens their panel. Ways in: the empty middle of
-  the idle island (`idle.middleOpensQuickSettings`; no hover pill or glyph on purpose: the user wants an
-  onboarding to explain it), Mod+S in niri, the launcher. Chosen over widgets in the empty launcher (two jobs in one place, keyboard
+  Badge click = toggle; the word under Wi-Fi / Bluetooth opens their panel. Ways in: the bar, Mod+S in niri, the launcher. Chosen over widgets in the empty launcher (two jobs in one place, keyboard
   ambiguity). Fully keyboard-usable (2026-11-15): one focus spot, shown by one grey
   highlight (a switch's whole tile, badge + word, or a level row) that springs from spot to spot like the
   Wi-Fi / Bluetooth lists' (panel.list.highlight / selectedOpacity; rings around the badges were tried and
@@ -477,7 +590,13 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   quickSettings.focus.padding. Keys go through QuickSettingsMode.handleKey(event), so a test copy drives it with
   plain { key, accepted } objects (never real keys). The power menu keeps the badge's soft color (the tint
   over the island, opaque), no outline.
-- Media (2026-11-14, Apple's expanded "now playing"): cover (rounded tile, a note without one), title in white
+  Sound output (2026-11-23, the bar has no volume icon on purpose): under the volume, "Sound output" and
+  the output in use; a click unfolds Sys.audioOutputs (Pipewire sinks, plain values) to pick another
+  (Sys.setAudioOutput -> Pipewire.preferredDefaultAudioSink). Keyboard (2026-11-24): the line is a spot
+  after the level rows (Space / Enter unfold, focus on the output in use; again folds), each output a
+  spot while unfolded (Space / Enter pick it); the focus highlight takes the rows' own hover rectangle.
+- Media controls (2026-11-14, Apple's expanded "now playing"; since 2026-11-23 the one panel that grows
+  out of the notch, from a click on the music playing in it): cover (rounded tile, a note without one), title in white
   over the artist in grey, MediaBars at the far right in the cover's color (Sys.mediaColor: ColorQuantizer,
   local covers only; https covers use media.accent.fallback); progress = elapsed, LevelSlider (drag seeks,
   debounced), "-time left"; previous / play-pause (bigger, glyphs swap with a scale) / next, centred. Previous / next are
@@ -504,34 +623,33 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   for both times. The old resize-with-the-row animation (resizing / timelineRoom / rowIn / rowOut) is
   gone. Sys prefers a player with a track: one left with no title never hides one that has one.
   Dragging only previews; the seek is sent on release (the wheel: debounced).
-  Space / Left / Right. Ways in: the idle bars, the "now playing" alert, the launcher, IPC.
+  Space / Left / Right. Ways in: the music in the notch, the launcher, IPC.
   Fullscreen (a double-click grew the island to the screen, the cover flying to a big picture over a
   blurred backdrop) was removed on 2026-11-19 with everything it needed (IslandMode.fullscreen,
   Island.expansion, the fullscreen springs, SwapImage): the user found it not worth its complexity.
   Don't bring it back.
   Covers (MediaCover) have smoothed corners (Config.roundedRectPath, island.cornerSmoothing).
-  Idle bars (2026-11-15): on the left right after the clock (idle.media.left; with four icons on the right
-  the island looked lopsided: left = what's going on, right = the machine's status). Headphones have no idle
-  icon any more (2026-11-15: the alert says it; a badge on the bars was tried and was too small to read,
-  bigger looked odd); Bluetooth headphones still show the Bluetooth rune. White (a cover-colored dot next to the green battery looked messy; a cover beside
-  them was tried and dropped, the color belongs where the cover is), moving while it plays, then still for
-  idle.media.linger after a pause / the end so a click can restart it. NowPlayingMode = the iPhone's compact
-  activity: cover at the far left, cover-colored bars at the far right, nothing between; Activity shows it
-  only when music starts after nowPlaying.quietGap of silence (no alert per playlist track or quick resume),
-  never over a panel, and pausing takes it down. A separate bubble beside the island was considered and not
-  done (the separate island was removed on purpose).
   The bars follow the real sound through cava (`sudo dnf install cava`; media.bars.realSound; Fedora's cava
   has no PipeWire input: `method = pulse`, through pipewire-pulse), run by Sys
   only while music plays and a MediaBars is running (Sys.mediaLevelUsers); without cava they dance on their
   own. Tested with a fake cava + fake player; never seek the user's real player to test.
-- Wallpaper (2026-11-16, the user's reference: a tilting card carousel): pictures of wallpaper.folders
+- Wallpaper picker (a dropdown under the notch since 2026-11-23; 2026-11-16, the user's reference: a tilting card carousel): pictures of wallpaper.folders
   (default ~/Pictures/[Ww]allpaper*, the Settings app's folder) as landscape cards in the screen's
   proportions; the selected one in front, side.count neighbours behind on each side (smaller, turned,
   darker), the next fading in from further out. Only 2 * side.count + 3 card items exist; each takes the
   next picture as it leaves one end (`pic` = the window index congruent to its slot). Width and padding are
   the launcher's (search.width / padding, 2026-11-17: the user wanted the same size); the front card's
-  width is what the side cards leave (no card width setting). No tilt or shine
-  on hover (2026-11-17: tried on the cards and the media cover; the user preferred it plain). Left / Right,
+  width is what the side cards leave (no card width setting). Hover tilt + shine: removed on 2026-11-17
+  ("preferred it plain"), brought back on 2026-11-24 at the user's request (the old code was gone, never
+  committed): the card under the pointer (any card, 2026-11-24) tilts toward it, each on its own spring
+  (carousel.tilt.*: up to 9 degrees, a
+  Matrix4x4 with a real perspective, viewer carousel.tilt.depth px away, because Qt's Rotation puts it
+  1024 px away and the tilt was invisible; its z row is identity, not rotated (rotated: the card went
+  "behind" its neighbours and got cut) and not zero (singular: the vector icons on the card vanished)),
+  and a radial shine follows the pointer in the card's outline (carousel.shine.*): on any card the pointer
+  is over, not only the front one (each card maps the pointer into itself), wide and faint, a sheen
+  rather than a spot ("less shiny neon like": opacity 0.12, radius 1.6, a middle stop at 0.3 at
+  half-way, fading in / out over shine.fade; 2026-11-24). Left / Right,
   wheel, drag, click a side card pick; Enter or a click on the front card applies (Sys.setWallpaper ->
   bin/wallpaper set: same line the Settings app writes, so it agrees; it watches settings.kdl). A check
   badge marks the wallpaper in use (read back after applying, so a failed save doesn't stay); each
@@ -544,7 +662,7 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   page lists the same ones with the same rules and these settings (its own copy of the code: change both).
   Ways in: launcher, IPC. Tested in a scratch
   copy with a folder of symlinks and setWallpaper stubbed (never apply a real wallpaper to test).
-- Screenshots panel (2026-11-17, "the same way wallpaper does"): ScreenshotsMode = PictureCarousel over
+- Screenshots picker (a dropdown under the notch since 2026-11-23; 2026-11-17, "the same way wallpaper does"): ScreenshotsMode = PictureCarousel over
   Sys.screenshots (bin/screenshots list: screenshot.folder, screenshots.extensions, newest first, sizes
   from the files' headers; read when it opens). Each card takes its picture's proportions held between
   screenshots.card.minRatio / maxRatio (the user: cards flex, but a thin one stays a normal rectangle,
@@ -579,13 +697,99 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   pictures (copy stubbed: never touch the clipboard); the drop itself needs a real pointer.
   Standing out (2026-11-17, "a bit hard to distinguish from the background", outline refused): a faint
   light under every card (carousel.backing.style "lift": a white RectangularShadow at lift.opacity 0.07,
-  blur 14, spread 1: "just a little bit so it's distinguishable"). Tried: "glow" (each card's own
+  blur 14, spread 1: "just a little bit so it's distinguishable"). Since 2026-11-24 the default is "glow"
+  again, at the user's request, softer (opacity 0.45, side 0.35, brightness 0.15, spread 12). Tried: "glow" (each card's own
   picture blurred and brightened under it; "way too strong", kept as a choice) and a spotlight behind
   the front card (too weak, removed).
   Each opening lands on the newest (followNewest, until you move), also when the list read on opening
   brings a new one. A panel reacting to a new list does it from the carousel's own onPicturesChanged:
   the mode's handler ran before the carousel had the list, and its selection named the old picture
   (both panels, fixed 2026-11-17).
+
+### Notifications
+- macOS look (2026-11-23, "more like Apple's, come from the right and be dismissed right too"): banners at
+  the top right under the bar (notifications.margin), sliding in from the right edge and out to it.
+  Swipes (2026-11-24, the user's rule): right (drag, or scroll sideways) DELETES it, out of the history
+  too; up (a banner only: drag, or scroll up) only takes it off the screen, kept in the history. The drag
+  locks to the way it starts (notifications.swipe.lock). A timed-out banner slides right but is kept.
+  Two fingers on a touchpad (2026-11-24, "the same way, in history and pop-up") move the card like a
+  drag: pixel deltas follow the content's direction, ScrollEnd (or notifications.swipe.scrollEnd ms of
+  quiet) decides like a drag release; momentum events are ignored. A mouse wheel's notch (angle delta
+  only) sends it at once (swipe.wheel). Two WheelHandlers: Horizontal always, Vertical only on banners
+  (in the center up / down scrolls the list); the old single handler was Horizontal, so up never fired.
+  AND a WheelHandler takes only mice by default: without `acceptedDevices: PointerDevice.Mouse |
+  PointerDevice.TouchPad` the user's touchpad (device type 4) never reached it ("I'm swiping and it doesn't
+  do anything", found with a log while they swiped). Every WheelHandler sets it; a touchpad sends many
+  small steps, so anything stepping (the calendar's months) adds up angleDelta and steps per 120.
+  Throws (2026-11-24, "it doesn't feel like you threw it but it stayed"): a drag or two-finger swipe is
+  judged where it would land, not where it was let go: NotificationCard.track() keeps a running speed
+  (each move weighs exp(-dt / (swipe.velocityWindow / 3)), so a pull back at the end shows in a few
+  events), release() goes when position + speed * swipe.projection passes swipe.distance, unless it's
+  moving back faster than swipe.backSpeed; a pointer resting longer than the window before letting go
+  throws nothing. A touchpad ends on ScrollEnd (holding still waits for it); the quiet timer
+  (swipe.scrollEnd) is only for scrolling without phases. Tested with timed fake events: a 32 px flick
+  at ~450 px/s deletes, a slow 20 px push and a throw pulled back stay, fast-then-held stays.
+  Smoothness (2026-11-24, "jittery", "doesn't keep the velocity", measured per frame in a test copy): the
+  input sets a target (_toX / _toY) and a FrameAnimation chases it (swipe.follow, 25 ms): moved on each
+  touchpad event it stepped (events don't fall on frames): now ~5.5 px every frame. The exit starts at
+  the throw's speed: a cubic Bezier (0,0) (1/3, m/3) (2/3, 1) (1,1), duration 3 * distance / speed held
+  in [swipe.minLeave, leaveDuration], m = speed * duration / distance (unthrown m = 3 = OutCubic); a
+  fixed OutCubic took a 360 px/s throw to 3600 px/s at once, now 360 -> 386 -> rising; a 1250 px/s
+  flick leaves at 1250. An open card stays open while swiped (_keepOpen): sliding out from under a still
+  pointer collapsed it mid-swipe. The card: app icon at the left (a soft glyph
+  tile without one; urgent = a red tile and a red title, not a red card), bold title with a relative age
+  at the right ("now", "5m ago", notifications.age.*), grey message, picture at the right, hairline edge
+  (notifications.edge*) + shadow. The center's header: two chips in the cards' color ("Notifications",
+  Clear all), not the black pill ("it feels weird just being full black"); the dark theme's surfaces
+  were lightened (#262628 / #2c2c2e) and the dropdowns got a hairline edge (panel.edge*).
+- The center lives under the clock (2026-11-23): Activity.center = the calendar dropdown being open;
+  NotificationStack hangs the center under the calendar's card (`under`, its width, right-aligned), the
+  banners still drop in under the notch. A dot after the clock while some are new (bar.clock.unseenDot).
+  IPC "notifications" (and "time") open the calendar; "screenshots" opens the shelf.
+- A card's height follows its content through an eased `shownHeight` (notifications.hoverDuration), so
+  hover opening (the whole message, the buttons) grows and shrinks smoothly; its text is clipped to the
+  card meanwhile.
+- The history's NEW / OLD chips (2026-11-24, "everything animated"): not ListView sections (they can't
+  animate: the chip vanished, everything jumped). Each center row is an Item drawing a chip above its card
+  when it's the first of its section (`headed`, from the neighbours' section, guarded for the stale
+  index of a row being removed). A headed card leaving with others in its section keeps the chip still
+  while it folds under it; once removed, the next row is headed at the very same spot (removeDisplaced
+  is empty: nothing moves on a removal, the fold already did it). The section's last card folds the chip
+  with it (chipShown = card.fold). Clear all cascades: the cards on screen sweep() out right
+  notifications.center.clearStagger apart, the chips fade (clearFade, always animated), then Inbox.clearAll.
+- Leaving cards play their own exit (2026-11-23: "the history doesn't animate well when something is
+  deleted, it just snaps up"; the ListView's remove / removeDisplaced transitions never ran): a banner
+  whose time is up gets `leaving` in Inbox.banners, a swipe or the × call NotificationCard.away: it slides
+  out right from where it is (mid-swipe included), then `fold`s its height to minus the list's gap so the
+  cards below glide up, then Inbox._dropBanner (off the screen) or Inbox.dismiss (gone). Every row of
+  both models has the `leaving` role (the card requires it).
+- Hovering the cards pauses their time (Inbox.hovered, from the stack's HoverHandler). The stack item
+  must be as tall as the cards (height = banners.contentHeight): a HoverHandler only feels the pointer
+  inside its own item, and the stack had no height, so nothing ever paused and cards vanished under the
+  pointer (2026-11-24).
+- Banner timing (Inbox._elapse): the time since the last tick is charged to the cards already there
+  BEFORE a new one is added. Charged to the new card too, it was hours after a quiet spell, so every
+  notification expired the moment it came and went straight to the center (2026-11-23; tests never saw it:
+  a test shell is always freshly started; to test, set Inbox._tickedAt an hour back).
+- The shell is the notification server (Sys.NotificationServer -> notified -> Inbox). Each notification
+  becomes a plain row in Inbox.model (newest first) and, unless Focus is on (critical ones still drop in,
+  dndAllowsCritical) or it's low urgency (showLowUrgency), a banner: it drops in from above the screen's
+  edge (ListView add transition from `above`) and settles under the notch; the others spring down
+  (displaced); after its time it slides back up (Inbox keeps it). notifications.maxVisible at once.
+  Hovering the cards pauses every banner's time (Inbox.hovered); leaving gives each at least
+  island.leaveDelay. Drag / scroll a card up: a banner leaves the screen, a center card is dismissed.
+- The center (Activity.center; a click on the clock or `toggle calendar`): the banners go,
+  a black pill ("Notifications", Clear all, the count, a dot while new), then NEW (time > lastSeen) and
+  OLD chips over the cards; it scrolls. Closing it marks everything seen (lastSeen = now). Escape closes it.
+- Saved across reboots (the user asked): notifications.json, plain values; a picture that came as data
+  (not a file) is dropped when saved. Live notification objects are kept by uid while the app has them
+  (actions, the window that sent it); after a restart, a click brings up the app by its name / entry.
+  An app closing its notification (CloseRequested) removes it; one updating it updates the card.
+- Screenshots (niri's "Screenshot captured", screenshot.summaries): Sys.findScreenshot finds the file;
+  the latest screenshot card still in the history gets it on top of its pile (the card comes back on top,
+  banner again), else a new card. The user: "bring up the latest unclosed screenshot notification and add
+  the current image to it in a pile". Clicking it opens the screenshots picker. niri's own notification is
+  closed at once (the card holds the file).
 - Clicking a notification (2026-11-17, "bring you to the page who issued them"): Sys.openNotification:
   its default action if any; a system sender without one (notifications.open.systemApps: normalized app
   name -> Settings page) opens the Settings app there; else the sender's window comes to the front (niri
@@ -596,104 +800,48 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   action: the app is started (DesktopEntry.execute, exact desktop id or name only). Tested 2026-11-17 in a
   scratch copy with the real window list. A test of openNotification must stub DesktopEntry.execute too
   (it started a real Files window once).
-- Notifications (2026-11-17, "the now seems redundant, the feel is a bit cheap"): the two-line language,
-  no third tier. Leading: the picture (a person, a cover) with the app's icon cut into its bottom-right
-  corner (an OddEven hole in the picture's mask, notifications.appBadge.*; iPhone-style), else the app's
-  icon, else a soft bell tile (the badges' look: tint at activity.badgeOpacity; red with
-  notifications.criticalIcon for urgent ones, the island's danger accent); corners concentric with the
-  island's end (Config.inner). The app's name shows above the title when nothing else says who it's from
-  (no icon, no picture). Title white (the
-  app's name when there's none), message grey (colors.secondary, no opacity), one line, all of it on hover.
-  No "now" and no app name by default (the icon says it; notifications.showAppName): the age shows only
-  once it waited notifications.ageAfter (behind a panel...). Arrival from onAppeared: the icon springs up
-  from appear.iconFrom, the text rises in appear.textDelay later; replayed when another notification takes
-  the place. Tested with fake notifications (a JS object with the Notification fields).
-- Screenshot (2026-11-17, the user's reference: the iPhone's island holding a card, without the check
-  under it): niri's "Screenshot captured" notification (screenshot.summaries) becomes ScreenshotMode, the
-  picture alone in a tile with the screenshot's proportions (screenshot.height, at most maxWidth),
-  island around it (paddingX 36 / paddingY 32, height 96) and corners that scale with the picture
-  (screenshot.roundness 0.1, a share of its height: small on purpose, a card; the one corner not from
-  a style role), and the island 1.8x rounder than the style around it (screenshot.islandRoundness ->
-  IslandMode.cornerScale; Island eases between scales over island.cornerMorph, at most half the height;
-  a full oval was tried and dropped): a card held in the
-  island, not concentric on purpose (the user: "it's basically a square in a pill"); the island keeps its
-  own corners (an oval island was tried and dropped, 2026-11-17), springing up from appear.from; click = Sys.openFile (the default image viewer) +
-  dismiss; right-click = Sys.revealFile (its folder) + dismiss; scroll up dismisses. One Activity key
-  ("screenshot"): a new one takes the place of the one shown (springs in again; the older notification is
-  dismissed); a timeout expires niri's notification too (it stayed in the server before). Activity asks Sys.findScreenshot first: the file from the notification
-  (image / icon given as a path), else the newest file saved in screenshot.folder in the last
-  screenshot.recent s, and its size from `file`'s header line, so the island opens straight to the right
-  shape; no file = the normal notification. Shown in Focus (you just took it); class `screenshot` in
-  island.priority, after charging. Tested with fake notifications only: never take a real screenshot to
-  test (it overwrites the clipboard).
-- Lists show right away by default (`panel.collapsibleList` off: function first for a public release; the
-  pill version is opt-in). While off, the title reads "Tap to turn on" (the symbol is the switch).
-- Wi-Fi and Bluetooth share their motion and pieces: `widgets/GlyphMotion.qml` (light-up part by part,
-  fade-out latch, ripple, failure shake + red flash) colors each part with an opaque blend (grey or the
-  accent over the island color: overlapping see-through strokes doubled up into bright spots; side effect:
-  with island.blur on, the unlit symbol is a solid dark grey, not see-through), `ExpandPill`, `RollingName`,
-  `PanelList` (the list chrome; rows and their maths stay in each panel), and the Panels settings
-  (`panel.*`: one width, `panel.width` 350, for the battery, time, Wi-Fi and Bluetooth
-  panels, so switching between them only changes the island's height; they all use its padding and share
-  the gauge: `widgets/ArcGauge.qml`, `panel.arc.*`). Battery and time have the same top (2026-11-13, made
-  cohesive on purpose): big number, small grey part beside it (% / seconds, same weight), grey line under
-  it, gauge, with the same sizes and gaps from `panel.number.*`, `panel.caption.*`, `panel.arc.gapAbove/Below`.
-  Never give one of them its own copy of these.
-- Time (click the idle clock, 2026-11-13, the battery panel's language): the time big, hours and minutes as
-  RollingNumber wheels (roll only on a normal +1; 59 -> 00 / 23 -> 0 / anything else jumps), seconds small
-  and grey (per second only while open), the month and year in grey (not the full date: the week row
-  already shows the weekday and the day; + optional week number, `Sys.weekNumber`); the day
-  on an ArcGauge, midnight to midnight, orange up to now (per minute), a tick per hour; the week row with
-  today in an orange circle. The analog clock face was dropped (two instruments in one panel).
 
-### Island shape
+### Shape (the notch, the dropdowns, the cards)
 - Screen corners: niri only rounds windows (`geometry-corner-radius`), so the shell paints the screen's corners
-  (`ScreenCorners.qml`, Overlay layer, empty input mask, reserves no space), smoothed like the island's
+  (`ScreenCorners.qml`, Overlay layer, empty input mask, reserves no space), smoothed like the notch's
   (screenCorners.smoothing; the corner maths, Config.cornerParams / cornerSvg, is shared with Island).
 - Drawn as an SVG path (`Island.shapePath`) in a `Shape` with the CurveRenderer: Figma-style corner smoothing
   (`island.cornerSmoothing`); smoothing gives way when space is short, so the resting pill keeps half circles.
   Smoothing 0 (and not attached) = a plain `Rectangle` instead (`Island.plain`): measured 14.8 % vs 18.6 % of
   a core while the island springs nonstop, same at rest. For older laptops.
-- Corner styles (`island.shape`: square / soft / round / full, default full = the user's tuned island;
-  2026-11-13, the user chose 4 hand-tuned presets over a 0-1 roundness slider, "for a deliverable open-source
-  project": every look a user can pick has been seen). Each style (`island.shapes.<style>`, advanced) gives
-  a corner per role: `island`, `attached`, `flare`, `pill` (buttons, list pill, slider, search field, close
-  buttons; 100 = always a pill), `row` (list/search highlights), `tile` (launcher tiles, notification
-  pictures), `small` (keycaps, and the floor below). Code reads `Config.corner(role, size)` = the style's value,
+- Corners: one size per role, `corners.*` (2026-11-23: the four corner styles island.shape / shapes were
+  removed, "this makes the code clearer"). The open notch: 32 (18 was tried: "nahhh more border
+  radius"); dropdowns and cards: 18. Before that, 4 hand-tuned styles (square / soft / round / full)
+  each gave
+  a corner per role: `island`, `attached`, `flare`, `pill` (buttons, slider, search field, the center's
+  pill, bar highlights; 100 = always a pill), `row` (list/search highlights), `menu` (the dropdowns'
+  card and the notification cards, 2026-11-23), `tile` (launcher tiles, pictures), `small` (keycaps, and
+  the floor below). Code reads `Config.corner(role, size)` = the style's value,
   at most half the size. Never add a per-widget radius setting: pick a role. Intent: square = small but never
   0; soft = a bit more, the resting island's ends slightly squared; round = resting island a pill, panels
   not fully round; full = pills everywhere.
   Things hugging the island's edge are concentric with it instead: `Config.inner(outer, inset, size)` =
-  outer corner minus the gap, never below `small`, at most half the size. Idle hover pills (IconSlot:
-  `Config.restCorner`, `island.pillInset`), activity badges (Badge: `restCorner`, `activity.inset` by default;
-  `outerCorner` / `inset` override it, e.g. the Wi-Fi password field's × badge). ArcGauge's band (track and
-  fill) is a filled outline, not a stroke (caps can only be round or flat): its end corners are the style's
-  `pill` corner (half circles in round / full, softened in soft / square), exact on the curved band. In
-  every style the band reaches half its thickness past the end ticks (the end ticks keep the room they have
-  in round / full; only the corners change), the fill as far past the level, so 100 % covers the track. The fill's outline is rebuilt per frame of the
-  sweep (0.025 ms each). Circles by meaning stay circles (clock face, hands, today dot, battery ticks); screen corners
-  (screenCorners.radius) are the display's, not the island's. Rejected before: a 0-1 roundness slider
-  (scaling every corner; in-between values couldn't all be checked), and earlier named presets (`island.style`).
-- `island.attachToTop` (off by default): flat top glued to the screen edge, concave flares
-  (the style's `flare` corner) joining it to the edge, bottom corners the style's `attached` corner; shell.qml then drops
-  the gap above the island. The flares are drawn outside the island's bounds (not clickable).
+  outer corner minus the gap, never below `small`, at most half the size: activity badges (Badge:
+  `restCorner`, `activity.inset` by default; `outerCorner` / `inset` override it, e.g. the Wi-Fi password
+  field's × badge), a card's picture. Circles by meaning stay circles (today in the calendar, battery
+  ticks, the switch's knob); screen corners (screenCorners.radius) are the display's. Rejected before: a
+  0-1 roundness slider (scaling every corner; in-between values couldn't all be checked).
+- `island.style` (2026-11-23, default "notch"): flat top glued to the screen edge, concave flares (the
+  style's `flare` corner) joining it to the edge, bottom corners the style's `attached` corner; "pill" floats
+  island.gap below the edge with `island` corners all round. The flares are drawn outside the island's
+  bounds (not clickable). (It replaced island.attachToTop.)
 - Content is clipped to the island's rectangle (`host`), not to the curved path.
 - The shape is drawn with each edge on the nearest device pixel (`Island.drawnX/Y/Width/Height`): at 1.25
   the 3 px gap and 38 px island put both edges mid-pixel, a faint row above and below that small corners
   (Square style) made obvious. Each edge snaps on its own (not position + size), so the content stays centred.
   Layout and transitions keep the exact size. Corner smoothing and blur weren't the cause (tested).
-- Idle: the clock pill sits `island.pillInset` from the left edge, like the icons from the right
-  (`island.paddingLeft` was removed: 4 px left vs 2 px top showed in Square).
-- `island.blur` (off by default): the fill becomes `island.color` at `island.blurOpacity` and the top-bar window
-  asks the compositor to blur behind the island (`BackgroundEffect.blurRegion`, ext-background-effect; niri
-  26.04 supports it, its strength is niri's `blur { }` block). The region is a rounded rectangle on the island
-  (`Island.blurCorner` = the clamped corner radius: the smoothed outline stays within 0.5 px of it; using the
-  smoothing's start point instead left a ~10 px unblurred band). Turning blur on in the compositor itself
-  (other desktops) is planned as a separate script. The flares aren't blurred.
+- No blur (2026-11-23: island.blur was removed, "against the design"). niri-settings may still write
+  island.blur / blurOpacity / attachToTop into config.jsonc: check-config.py lists them as RETIRED (a
+  note, not a failure) and --rewrite drops them.
 
 ## Behaviour
 
-### Island transitions (IslandMode)
+### Transitions (IslandMode: the notch and the dropdown card)
 - Every mode is always instantiated; the leaving and the incoming mode coexist during a switch.
 - Leaving: fades/blurs over `transition.fadeOut`, shrinks toward `outScale`, loosely follows the island (`outFit`).
 - Incoming: waits until the leaving one is below `transition.handoff` and the island is `fadeInStart` grown,
@@ -704,21 +852,21 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   just reveals/clips instead of shrinking its content.
 - A leaving mode is frozen (2026-11-15): nothing it shows may change while it animates out (the time
   panel's seconds jumped to :00 when the per-second clock switched off, the Wi-Fi list's highlight jumped and
-  the list collapsed). On `active` going false a mode freezes its data (TimeMode.now, WifiMode.networks,
+  the list collapsed). On `active` going false a mode freezes its data (WifiMode.networks,
   BluetoothMode.devices, MediaMode.media + position: `x = x` breaks the binding, `Qt.binding` restores it on
   open) and keeps its look; resets, menus closing, animations stopping wait for `onScreen` (IslandMode:
   active or still fading) to go false. Moving things (music bars, the low battery pulse, ripples) keep
   moving until then. New modes follow the same rule.
+- Motion was made a touch smoother on 2026-11-23 ("make all animation a bit smoother"): island.expand
+  0.55 s / 0.84, shrink 0.42 / 0.88 (niri's window-open / close mirrored: stiffness 131 / 224), list
+  highlight 0.42 / 0.84, fades +20-40 ms (fadeIn 300, fadeOut 280, colorFade 300, hoverFade 160).
 - Closing must react on the first frame (Apple-style): fast-start curves (OutCubic, springs from rest) for
   anything leaving, never an ease-in, and `shrinkDelay` stays 0 by default. A hold or an ease-in at the start
   reads as lag.
 - Closing (2026-11-19): a scripted closing bounce was built and tuned at length (a quick dip under the
   idle width, a spring out past it, the idle content fading in and scaling with it; island.exit.*), then
   removed: compared side by side, the plain spring won (Apple's island settles more than it bounces,
-  closing happens on every pop-up so a flourish gets old, and it was ~250 ms slower). What stayed: the
-  idle island fades in once the closing content is fully gone (idle.transition.handoff 0; it was 0.1:
-  ~175 ms, now ~290-315 ms, island almost at rest; idle.transition.fadeInStart 0.2 wasn't the gate).
-  island.shrink stays at 0.85 (QML's SpringAnimation doesn't overshoot there): a landing overshoot was
+  closing happens on every pop-up so a flourish gets old, and it was ~250 ms slower). island.shrink stays at 0.85 (QML's SpringAnimation doesn't overshoot there): a landing overshoot was
   tried at 0.7 (3 px under in width and height) and the user found the scale-down too noticeable;
   0.75 was ~1 px, 0.65 dipped the height 7.5 px.
 - Island: grow and shrink use different springs per axis; the `shrinkDelay` hold applies only within 150 ms
@@ -729,66 +877,30 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
 - A key that closes a mode or hands focus back (Escape, Enter in search) must call `mode.holdKeyboard()` right
   before `requestState`/acting (`mode.close()` does both). shell.qml then keeps keyboard focus (on `keyCatcher`)
   until that key is released: niri passes keys still held at a focus change to the next window (Escape made
-  fullscreen videos exit fullscreen). Only hold it when the mode really closes/switches: holding moves focus
-  away from the mode (that bug made the launcher stop responding after Enter with no result).
-- Keyboard focus follows `Activity.panel` (a panel is open, even if covered by the volume), not islandState:
-  activities never take the keyboard.
-- Keyboard focus of the island window (shell.qml `keyboardFocus`): opened from the keyboard (launcher, IPC) =
-  Exclusive; opened with the mouse = Exclusive too when `island.clickTakesKeyboard` (on: Escape closes a clicked
-  panel right away), else OnDemand (the app keeps the keyboard until you click in the panel); idle = None.
-  Activities never take it. "From the keyboard" = `keyHeld` at the moment of `requestState`.
-- Panels opened from the keyboard (launcher, IPC) set `root.pinned`: they don't auto-close until the mouse has
-  entered the island once (or Escape). Mouse-opened panels close `island.collapseDelay` after the mouse leaves
-  (only while the panel itself is on screen, `Activity.panelShown`, and while the mode's `autoClose` is true).
-- Click outside closes any open panel (`island.clickOutsideCloses`): shell.qml maps a transparent full-screen
-  window on the Top layer (under the island's Overlay) only while `Activity.panel` is set. It must stay on a
-  lower layer than the island: on the same layer, a surface mapped later would cover it.
-- niri's window open/close animations mirror the island springs (`~/.config/niri/config.kdl`, `animations` block):
-  window-open = `island.expand`, window-close = `island.shrink`, with stiffness = (2π / response)², damping-ratio =
-  dampingFraction. When either spring changes, update niri too (and run `niri validate`).
-  Only those two are mirrored. The camera/travel animations (`horizontal-view-movement`, `window-movement`,
-  `window-resize`, `workspace-switch`) stay on niri's defaults: the user tried island-style springs there and
-  didn't like it. Don't customize them.
+  fullscreen videos exit fullscreen). Only hold it when the mode really closes/switches.
+- Keyboard focus of the window (shell.qml `keyboardFocus`): opened from the keyboard (launcher, IPC) =
+  Exclusive; opened with the mouse = Exclusive too when `island.clickTakesKeyboard`, else OnDemand; nothing
+  open = None. Notch activities and cards never take it. "From the keyboard" = `keyHeld` at the moment of
+  `requestState`, or an IPC toggle.
+- One thing open at a time (Activity.open): a dropdown, the center or the media controls.
+- Handlers that react to a change must read the changed value itself, not a binding derived from it (it
+  may not have updated yet): Dropdown.onNameChanged read `shown` and faded the card the wrong way
+  (2026-11-23).
+- niri's window open/close animations mirror the notch springs (`~/.config/niri/config.kdl`, `animations`
+  block): window-open = `island.expand`, window-close = `island.shrink`, with stiffness = (2π / response)²,
+  damping-ratio = dampingFraction. When either spring changes, update niri too (and run `niri validate`).
+  The camera/travel animations stay on niri's defaults (the user tried island-style springs there).
 - Battery color priority: charging (green) > power saver (yellow) > low battery (red) > performance (red) >
-  balanced (white). Computed once in `Sys.battery.color`; every battery widget uses it, except the idle
-  island's (`Sys.battery.idleColor`, 2026-11-15): there a bolt cut into its corner says charging
-  (idle.battery.badge; power saver also gets a plus there), so the body keeps the next color in line (white when balanced) instead of green.
-  The charging alert keeps its green battery and gets the same bolt once its fill sweep lands (charging.bolt),
-  so the handoff to the idle island only changes the color.
-- Idle: the clock (time only by default, `idle.clock.dateFormat` empty) and the status icons sit in `IconSlot`s
-  (hover pill + fade + click) with the "dim base + bright overlay" look. The slot decides visibility (`shown`);
-  the widget inside never hides itself. A slot's width springs open with the island's spring, so a new icon makes
-  room exactly where it goes, then fades in. Spacing between icons is the slots' `gap` = `island.spacing`
-  (0: the pills only show on hover, a gap would be dead space).
+  balanced (white). Computed once in `Sys.battery.color` (the alerts); the bar's battery is always white.
 - Each file starts with a short comment saying what it is. Keep it accurate when you change the file.
-
-### Calm mode (2026-11-20)
-- The island at rest as a small empty pill (calm.width 80, the resting height minus calm.shorterBy 8: a bit lower than the idle island, which
-  keeps its own height), like
-  the idle Dynamic Island. On while calm.always, while a window is fullscreen (calm.fullscreen), or toggled
-  by `qs ipc call island calm` (Activity._calmOverride: holds until the fullscreen state changes).
-  shell.qml shows "calm" instead of "idle" while Activity.calm && !calmRevealed. Hover reveals the idle
-  island after calm.revealDelay (a click on the pill at once), leaving hides it calm.hideDelay later.
-- What pops up while calm: panels always (a hidden panel would still take the keyboard), the goodbye,
-  and the classes in calm.shows (default: the keys you press and every alert, critical notifications
-  included; 2026-11-20, the user: "let alerts go through"); the rest (notifications, messages) wait in the queue with their time, like anything covered (Activity._pick).
-  A held one plays its sound when it shows, not on arrival (item.soundLater: no ding with nothing on
-  screen); a backlog after calm = one sound (sounds.minGap).
-- Fullscreen: niri's JSON has no fullscreen flag. Sys keeps windows / workspaces from
-  `niri msg --json event-stream` (running only while calm.fullscreen) and the outputs' logical sizes
-  (`niri msg --json outputs`, re-read on WorkspacesChanged): Sys.fullscreen = the active window of the
-  active workspace on Quickshell.screens[0] is at least the output's logical size, overview closed. A
-  window maximized to the edges counts too.
-- The pill is smaller than island.minWidth: IslandMode.belowMinimum lets a mode's implicit size go under
-  the island's minimum (Island's targets read the mode's fullWidth / fullHeight).
-- Not done yet: the sixth quick settings switch (the row of five is already tight at panel.width 350).
 
 ### System settings (2026-11-16)
 - The planned desktop settings app writes the system's settings (gsettings, logind...), never the island's
   config for shared values: the island follows the system. Today: the accent (gsettings accent-color, a
   name, mapped to a color by colors.systemAccents; Config.colors.accent returns it while
   colors.followSystemAccent) and the 12 / 24-hour clock (clock-format -> Sys.hour24, used by every clock;
-  time.followSystemClock; the idle clock has idle.clock.timeFormat and timeFormat12h). One `gsettings
+  time.followSystemClock; the bar's clock has bar.clock.timeFormat and timeFormat12h), and light / dark
+  (color-scheme -> Config.systemScheme -> Config.dark / Config.theme, unless colors.scheme forces one). One `gsettings
   monitor` stream + a read at start, nothing polls. Focus (do not disturb) is GNOME's
   org.gnome.desktop.notifications show-banners (false = Focus on): Sys.systemFocus / setSystemFocus. Fedora's default clock-format is 12h (locale default,
   not user-set): set to 24h on 2026-11-16 to keep the user's island. Test with an isolated dconf db
@@ -796,8 +908,8 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   afterwards), never the user's.
 
 ### Sounds (2026-11-15)
-- Only for what's worth hearing when you're not looking: notifications and alerts (Activity._sound, called
-  by show() for a new activity, not an update in place). Never clicks, panels, toggles or the music controls
+- Only for what's worth hearing when you're not looking: notifications and alerts (Activity.sound, called
+  by show() for a new notch activity, not an update in place, and by Inbox for a card that drops in). Never clicks, panels, toggles or the music controls
   (desktop clicks are silent; a skip sound would play over the music). Defaults: notification, low battery,
   charging on; headphones, Wi-Fi connected off. Quiet during Focus except low battery; one sound per
   sounds.minGap (a burst of notifications = one sound); nothing while the output is muted.
@@ -817,7 +929,7 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   *delay* lock on shutdown (`systemd-inhibit --what=shutdown --mode=delay ... cat`, stdin kept open: the lock
   dies with the shell, so a crash never delays a shutdown) and listens to `gdbus monitor --system` for
   `PrepareForShutdown (true,)`. That catches every shutdown that goes through logind (launcher, systemctl,
-  power button). Activity then clears the queue and the panel and refuses any other activity; GoodbyeMode
+  power button). Activity then clears the queue and closes whatever is open and refuses any other activity; GoodbyeMode
   writes "bye bye" (iOS "hello"-style: one round stroke revealed with ShapePath `trim.end`), holds, and calls
   `Sys.releaseShutdown()`. logind waits at most InhibitDelayMaxSec (5 s default): delay + duration + hold
   must stay under it; `goodbye.maxWait` releases anyway. `PrepareForShutdown (false,)` (cancelled) gives the
@@ -828,15 +940,19 @@ Each mode keeps the layout that suits it, but they all follow these rules. Share
   (a joined "byebye" read as one word). The first version (upright, fat stroke, 2.2 s) felt slow and heavy. Tested only in a scratch copy (`Sys._shutdownAnnounced(true)`, lock
   command swapped for `cat`); never trigger a real shutdown to test.
 
-## Release (2026-11-17)
+## Release (2026-11-17; the bar + notch redesign isn't released yet)
 Published as https://github.com/NiteChill/niri-island (public, GPL-3.0-or-later, release v0.1.0), with
 the Settings app as https://github.com/NiteChill/niri-settings. README.md is for users: what it does,
 how it works with niri-settings, what it needs (Fedora / Arch packages), install (clone into
 ~/.config/quickshell, niri spawn + binds). Keep it true when a dependency, a panel or an IPC call
 changes. THIRD-PARTY.md credits Material Symbols. Commits use GitHub's noreply address.
-docs/hero.png and docs/panels.png (the README's pictures) are made from the Settings app's repository:
-tools/capture-island.py (stages a copy of this island with made-up data and grabs each state) then
-tools/readme-images.py; remake them when the island's look changes.
+docs/hero.png, panels.png and shelf.png (the README's pictures) are made here since 2026-11-24:
+`python3 tools/readme-images.py` (a scratch copy staged with made-up data: 9:41 on Tue 9 June, "Home" /
+"Buds", a made-up song from the start (a real one leaked into a first run when the demo song was toggled
+per scene), made-up notifications and shelf photos, no tray, "Files"; each scene set up only after the
+previous grab is saved; composed over a generated wallpaper). Look at every picture for anything
+private before it's committed. Remake them when the look changes. (The Settings app's own
+tools/capture-island.py still stages the island-only version for its showcase: not ours.)
 
 ## Reviews (the user's way, 2026-11-17)
 When asked to review something (a mode, a change, the day's work): first give it a grade out of 10 with
@@ -873,7 +989,10 @@ work that augments the grade (checks, tests, CLAUDE.md, notify as usual).
   named `text` is asking for trouble; a function named `onSomething` looks like a signal handler.
   Inside a delegate/child that has a property of the same name, an id is shadowed: Icon has `glyph`, so
   `glyph.x` inside an Icon read the Icon's own (a CutoutBadge cut drew nothing; its id is now `mark`).
-- Item already has `top` / `bottom` (anchor lines, FINAL) and `data`: don't name properties after them.
+- Item already has `top` / `bottom` / `left` / `right` (anchor lines, FINAL) and `data`: don't name
+  properties after them (a test's `property int left` failed to load: "Cannot override FINAL property").
+- A `point` (or other value type) read from a property can stay tied to it: `const v = _speed; _speed =
+  Qt.point(0, 0)` and v.x read 0 (every throw was judged motionless). Copy the numbers out first.
 - Inline components (`component Hand: Rectangle {}`) go at the document root and can't see ids of the enclosing
   file: pass what they need as properties. Inside a `Rotation`, `angle: angle` binds the Rotation to itself:
   qualify (`hand.turn`).

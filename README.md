@@ -1,49 +1,70 @@
 # niri-island
 
-A Dynamic Island-style top bar for the [niri](https://github.com/YaLTeR/niri) Wayland compositor, built
-with [Quickshell](https://quickshell.org). One island at the top of the screen that springs between
-shapes: at rest it shows the time and your status icons; it opens into panels you ask for, and it
-shows what happens on the computer as it happens.
+A macOS-style top bar with a Dynamic Island notch for the [niri](https://github.com/YaLTeR/niri) Wayland
+compositor, built with [Quickshell](https://quickshell.org). The bar shows where you are and what your
+computer is doing, and every icon in it opens what's behind it. The notch in the middle shows what
+happens right now: the music playing, your volume keys, alerts.
 
 It is a community project, not part of niri.
 
-![The island at rest, then open on the music, quick settings and the time](docs/hero.png)
+![The bar, the music playing in the notch, and quick settings open under its icon](docs/hero.png)
 
 ## What it does
 
-**Panels** (click the island, a shortcut, or its launcher):
+**The bar** (white icons over a soft shade, readable on any wallpaper):
 
-- **Search**: a launcher for apps, files, calculations, web searches, the island's panels and the
-  desktop's settings (with [niri-settings](https://github.com/NiteChill/niri-settings)), with pinned
-  favourites.
-- **Quick settings**: Wi-Fi, Bluetooth, Focus (do not disturb), microphone, power mode, brightness and
-  volume.
-- **Wi-Fi** and **Bluetooth**: nearby networks and devices, connect, pair.
-- **Battery**, **Time** (with the day and the week), **Now playing** (cover, progress, controls).
-- **Wallpaper** and **Screenshots**: a carousel of pictures. Pick a wallpaper; copy a screenshot with
-  Enter (Shift+Enter shows it in Files) or drag it out of the island into an app.
+- At the left, your distribution's logo (places, search, lock, log out, restart, shut down), the app
+  you're in (fullscreen, maximize, float, center or close its window) and your workspaces as dots: click
+  a dot to go there, around them for niri's overview.
+- At the right, the apps' tray icons, then Bluetooth, Wi-Fi, battery, quick settings and the clock.
+  Each opens its **dropdown** right under it (light or dark, following your desktop):
+  - **Wi-Fi** and **Bluetooth**: a switch and the networks / devices nearby; connect, pair.
+  - **Battery**: the level, the time left, and the power mode.
+  - **Quick settings**: Wi-Fi, Bluetooth, Focus (do not disturb), microphone, power mode, brightness,
+    volume and where the sound goes.
+  - **Calendar**: the month, today circled, and your notifications under it.
 
-![A notification, the search and the battery panel](docs/panels.png)
+  Everything works from the keyboard too (arrows, Tab, Enter, Space, Escape). A click outside, or on the
+  bar's empty space, closes it.
+- **Search** (a shortcut): the notch grows into a launcher for apps, files, calculations, web searches
+  and the desktop's settings (with [niri-settings](https://github.com/NiteChill/niri-settings)), with
+  pinned favourites.
+- **Wallpaper** (from the search or the logo's menu): a carousel of your wallpapers.
 
-**Pop-ups** (the island shows them, in order of importance):
+![Notifications at the top right, the calendar with the notification history, search in the notch, and the music player](docs/panels.png)
+
+**The notch** (what happens now, in order of importance):
 
 - Volume, brightness and microphone feedback for your keys (it replaces an OSD like swayosd).
-- **Notifications**: the island is your notification server (it replaces mako, dunst or swaync).
-  Clicking one brings up the window that sent it, or the Settings page for system messages.
-- Screenshots as you take them, low battery, charging, headphones, Wi-Fi connected, music starting.
-- A handwritten goodbye when you power off or restart.
+- Low battery, charging, headphones, Wi-Fi connected, and a handwritten goodbye when you power off.
+- The music playing: its cover and moving bars, the whole time it plays. Click it for the controls.
 
-Its font, Google Sans Flex, comes with it (the rounded letter ends are part of the look): nothing to
-install. Everything you can see is a setting: sizes, colours, corners, springs, timings, icons, texts.
-`config/schema.json` describes every one of them; your choices go in `config/config.jsonc`.
+**The shelf**: the notch holds things. Drop files on it and they're kept in a folder of its own
+(`~/Island`); every screenshot lands there too. Click the notch to open the player or the shelf (when
+both have something, small tabs under the notch switch between them); open, show, copy or drag the
+files back out into any app. Files that aren't pictures show their preview (PDFs, videos, documents) or
+their type's icon.
+
+![The shelf open in the notch, with the tabs under it](docs/shelf.png)
+
+**Notifications**: the shell is your notification server (it replaces mako, dunst or swaync). They
+slide in at the top right, like macOS, several at once, and wait while your pointer is on them. Swipe
+one up to put it away (it stays in the history), right to delete it. Click the clock to see them all
+again under the calendar, new and old (they're kept across reboots). Clicking one brings up the window
+that sent it. Screenshots arrive as a card with the picture; take several and they pile up on it.
+
+Its font, Allo, comes with it: nothing to install. Everything you can see is a setting: sizes, colours,
+corners, springs, timings, icons, texts. `config/schema.json` describes every one of them; your choices
+go in `config/config.jsonc`.
 
 ## Works with niri-settings
 
 [niri-settings](https://github.com/NiteChill/niri-settings) is a settings app for niri, the system
 and this island, made to go with it. Each works without the other; together:
 
-- The Settings app has a **Dynamic Island** page (the island's look, which alerts show, search) and
-  island options spread where you'd look for them (notifications, sound, appearance).
+- The Settings app has a **Dynamic Island** page (which alerts show, search) and options spread where
+  you'd look for them (notifications, sound, appearance). Its island look options (blur, attached to
+  the top) belong to the previous, island-only version and do nothing here yet.
 - They share the system's settings: the accent colour, the 12 / 24-hour clock, Focus and the wallpaper
   are the desktop's, so changing one in either place changes both.
 - The island's search finds the Settings app's settings ("night light" opens that page).
@@ -72,7 +93,8 @@ Optional:
 
 - `brightnessctl`: brightness keys and the brightness slider (laptops).
 - `cava`: the music bars follow the real sound (otherwise they dance on their own).
-- `python3-gobject` (Fedora) / `python-gobject` (Arch): drag screenshots into sandboxed apps (Flatpaks).
+- `python3-gobject` (Fedora) / `python-gobject` (Arch): drag files from the shelf into sandboxed apps (Flatpaks).
+- Thumbnailers for the shelf's previews (on GNOME-based systems they come with Files, Papers, the GStreamer plugins...).
 - A file manager that supports "show in folder" (Files, Dolphin...), and `xdg-utils`.
 - [niri-settings](https://github.com/NiteChill/niri-settings).
 
@@ -105,27 +127,24 @@ place.
    }
    ```
 
-   (Put the binds inside your existing `binds { }` block.) Any panel opens with
-   `qs ipc call island toggle <name>`: `search`, `quickSettings`, `wifi`, `bluetooth`, `battery`, `time`,
-   `media`, `wallpaper`, `screenshots`. `qs ipc call island calm` toggles calm mode (the island as a
-   small empty pill; on by itself while a window is fullscreen). niri-settings' Keyboard > Shortcuts
-   page can set all of these for you.
+   (Put the binds inside your existing `binds { }` block.) Anything opens with
+   `qs ipc call island toggle <name>`: `search`, `quickSettings`, `wifi`, `bluetooth`, `battery`,
+   `calendar` (with the notifications), `media`, `shelf`, `wallpaper`. niri-settings' Keyboard > Shortcuts
+   page can set these for you.
 
 3. Log out and back in, or start it now with `qs &`.
 
-Optional: for the island's background blur, turn on niri's blur (niri 26.04) and the island's
-`island.blur` setting.
-
-**Update:** `git -C ~/.config/quickshell pull` (the island reloads by itself).
+**Update:** `git -C ~/.config/quickshell pull` (it reloads by itself). The previous, island-only
+version stays available as the `v0.1-island` tag.
 **Uninstall:** remove `~/.config/quickshell` and the lines above.
 
 ## Settings
 
 `config/config.jsonc` lists every setting, commented out at its default: uncomment a line to change it.
-The island reloads as soon as you save. `config/schema.json` explains each one (what it changes, its
+The shell reloads as soon as you save. `config/schema.json` explains each one (what it changes, its
 range). After editing, `python3 tools/check-config.py` checks the file.
 
 ## Licence
 
 GNU General Public License v3.0 or later: see `LICENSE`. The icons are Material Symbols (Apache-2.0)
-and the font is Google Sans Flex (SIL Open Font License 1.1): see `THIRD-PARTY.md`.
+and the font is Allo (SIL Open Font License 1.1): see `THIRD-PARTY.md`.

@@ -14,6 +14,8 @@ import "../services"
 //  - followIsland: once settled, the content is laid out at the island's live width (edges slide with it)
 //  - incoming content is never scaled below tr.minScale while the island grows (it's clipped instead): the
 //    island's growth is mapped onto minScale -> 1, so the content moves from the first frame
+//  - Island.plainFade (the dropdown card): none of the scaling, pop or blur; the content just crossfades
+//    (handoff, then fade in) while the card morphs around it
 // Tunables: config.jsonc island.transition (a mode can override some: trOverride)
 Item {
     id: mode
@@ -31,7 +33,8 @@ Item {
     // the island's corners while this mode is active: the corner style's times this (1 = as they are;
     // the screenshot rounds them more); Island eases to it over island.cornerMorph
     property real cornerScale: 1
-    // the island may be smaller than island.minWidth / the resting height for this mode (calm's pill)
+    // the island may be smaller than island.minWidth / the pop-ups' height for this mode (the resting
+    // notch, the music, the drop zone)
     property bool belowMinimum: false
 
     // ---- keyboard ----
@@ -70,7 +73,7 @@ Item {
         return p;
     }
     // transition settings: the island's own (config.jsonc island.transition),
-    // optionally overridden per mode (e.g. BatteryMode sets trOverride: Config.battery.transition)
+    // optionally overridden per mode (e.g. QuickSettingsMode sets trOverride: Config.quickSettings.transition)
     property var trOverride: ({})
     readonly property var tr: Object.assign({}, island ? island.transition : Config.island.transition, trOverride || {})
 
@@ -168,7 +171,7 @@ Item {
         appearStarted = true;
         appearIn.start();
         // bouncy pop starts with the content, not before it's visible
-        if (opening) {
+        if (opening && !(island && island.plainFade)) {
             popBehavior.enabled = false;
             pop = tr.pop.from;
             popBehavior.enabled = true;
@@ -250,7 +253,7 @@ Item {
     y: 0
     transformOrigin: Item.Top
     scale: {
-        if (!island || !active && presence <= 0)
+        if (!island || !active && presence <= 0 || island.plainFade)
             return 1;
         const fit = Math.max(0, Math.min(tr.maxScale, Math.min(island.width / fullWidth, island.height / fullHeight)));
         if (active) {
@@ -271,7 +274,7 @@ Item {
 
     // blur while transitioning; the layer only exists mid-transition to keep idle cost at zero.
     // incoming: clears over the whole fade-in (so it's still visible after opacity is full).
-    readonly property real blurAmount: (active ? 1 - appear : Math.pow(1 - presence, tr.blurOutCurve)) * tr.blur
+    readonly property real blurAmount: island && island.plainFade ? 0 : (active ? 1 - appear : Math.pow(1 - presence, tr.blurOutCurve)) * tr.blur
     layer.enabled: blurAmount > 0.01
     layer.effect: MultiEffect {
         blurEnabled: true

@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+"""The island's shelf helper (run by services/Sys.qml): the folder the notch holds files in.
+
+  shelf list <folder> [--cached]
+      everything in <folder> (not hidden, not its subfolders' contents), newest first, one per line:
+      "<modified, s since 1970>\t<width>\t<height>\t<path>\t<preview>\t<mime type>\t<icon>". The preview is
+      the picture itself (its size read from its header: PNG, JPEG, GIF, WebP), else the desktop's
+      thumbnail of it (~/.cache/thumbnails/large, the freedesktop cache Files uses), made here with the
+      installed thumbnailers (/usr/share/thumbnailers: PDFs, videos, documents, fonts...) when there's
+      none yet (with --cached: only the thumbnails already made, so the list comes at once); "" = none
+      (the shelf shows the file type's icon). Width / height are the preview's. The
+      icon is the file type's, a file of the icon theme (gsettings icon-theme, then Adwaita, hicolor).
+
+  shelf thumbnails <folder>
+      makes the thumbnails the folder's files don't have yet; prints how many it made (the shelf lists
+      the folder again when it made some).
+
+  shelf add <folder> <uri>...
+      puts dropped things in <folder>: file:// ones are copied (folders too), http(s):// ones downloaded;
+      a name already taken becomes "name 2.ext". Prints each new path.
+
+  shelf keep <folder> <path>
+      puts a screenshot in <folder>: a hard link (no extra space; deleting either keeps the other), else
+      a copy. Prints the new path.
+
+  shelf transfer
+      reads file paths on stdin, one per line, and answers each with "<key>\t<path>": a key of the
+      desktop's file transfer portal (org.freedesktop.portal.FileTransfer) holding that file. Dropped
+      with the mime type application/vnd.portal.filetransfer, the key lets a sandboxed app (a Flatpak
+      browser that can only read Downloads) receive the file itself; it's how Files hands files over.
+      The keys stay valid while this process runs (the transfers belong to its connection to the bus).
+      "<error>\t<path>" when it couldn't be done.
+"""
+import hashlib
+import os
+import shlex
+import shutil
+import struct
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+
+def size_of(path):
+    try:
+        with open(path, "rb") as f:
+            head = f.read(32)
+            if head[:8] == b"\x89PNG\r\n\x1a\n":
+                return struct.unpack(">II", head[16:24])
+            if head[:6] in (b"GIF87a", b"GIF89a"):
+                return struct.unpack("<HH", head[6:10])
+            if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+                kind = head[12:16]
+                if kind == b"VP8X":
+                    return (int.from_bytes(head[24:27], "little") + 1, int.from_bytes(head[27:30], "little") + 1)
+                if kind == b"VP8 ":
+                    w, h = struct.unpack("<HH", head[26:30])
+                    return (w & 0x3FFF, h & 0x3FFF)
+                if kind == b"VP8L":
+                    b = head[21:25]
+                    w = 1 + (((b[1] & 0x3F) << 8) | b[0])
+                    h = 1 + (((b[3] & 0xF) << 10) | (b[2] << 2) | ((b[1] & 0xC0) >> 6))
+                    return (w, h)
+            if head[:2] == b"\xff\xd8":
+                f.seek(2)
+                while True:
+                    marker = f.read(2)
+                    if len(marker) < 2 or marker[0] != 0xFF:
+                        break
+                    if marker[1] in (0xD8, 0x01) or 0xD0 <= marker[1] <= 0xD7:
+                        continue
+                    length = struct.unpack(">H", f.read(2))[0]
+                    if 0xC0 <= marker[1] <= 0xCF and marker[1] not in (0xC4, 0xC8, 0xCC):
+                        h, w = struct.unpack(">xHH", f.read(5))
+                        return (w, h)
+                    f.seek(length - 2, 1)
+    except (OSError, struct.error):
+        pass
+    return (0, 0)
+
+
+IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+
+
+def mime_of(path):
+    if os.path.isdir(path):
+        return "inode/directory"
+    try:
+        out = subprocess.run(["file", "-b", "--mime-type", "--", path], capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() or "application/octet-stream"
+    except (OSError, subprocess.SubprocessError):
+        return "application/octet-stream"
+
+
+def thumbnailers():
+    found = {}
+    for base in (os.path.expanduser("~/.local/share/thumbnailers"), "/usr/local/share/thumbnailers", "/usr/share/thumbnailers"):
+        try:
+            names = sorted(os.listdir(base))
+        except OSError:
+            continue
+        for name in names:
+            if not name.endswith(".thumbnailer"):
+                continue
+            exec_line, types = "", []
+            try:
+                with open(os.path.join(base, name)) as f:
+                    for line in f:
+                        if line.startswith("Exec="):
+                            exec_line = line[5:].strip()
+                        elif line.startswith("MimeType="):
+                            types = [m for m in line[9:].strip().split(";") if m]
+            except OSError:
+                continue
+            for m in types:
+                found.setdefault(m, exec_line)
+    return found
+
+
+def thumbnail(path, mime, tools, make=True):
+    uri = "file://" + urllib.parse.quote(os.path.abspath(path))
+    digest = hashlib.md5(uri.encode()).hexdigest()
+    folder = os.path.expanduser("~/.cache/thumbnails/large")
+    out = os.path.join(folder, digest + ".png")
+    try:
+        if os.path.getmtime(out) >= os.path.getmtime(path):
+            return out
+    except OSError:
+        pass
+    command = tools.get(mime)
+    if not command or not make:
+        return ""
+    os.makedirs(folder, exist_ok=True)
+    tmp = out + ".part-%d" % os.getpid()
+    args = []
+    for word in shlex.split(command):
+        for key, value in (("%s", "256"), ("%u", uri), ("%i", os.path.abspath(path)), ("%o", tmp), ("%%", "%")):
+            word = word.replace(key, value)
+        args.append(word)
+    try:
+        subprocess.run(args, capture_output=True, timeout=15)
+        if os.path.getsize(tmp) > 0:
+            os.replace(tmp, out)
+            return out
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    return ""
+
+
+GENERIC = {"text": "text-x-generic", "image": "image-x-generic", "audio": "audio-x-generic",
+           "video": "video-x-generic", "font": "font-x-generic"}
+
+
+def icon_themes():
+    themes = []
+    try:
+        out = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "icon-theme"],
+                             capture_output=True, text=True, timeout=5).stdout.strip().strip("'")
+        if out:
+            themes.append(out)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return themes + [t for t in ("Adwaita", "AdwaitaLegacy", "hicolor") if t not in themes]
+
+
+def icon_for(mime, themes, cache):
+    if mime in cache:
+        return cache[mime]
+    if mime == "inode/directory":
+        names, kinds = ["folder"], ["places"]
+    else:
+        names = [mime.replace("/", "-"), GENERIC.get(mime.split("/")[0], "application-x-generic"), "text-x-generic"]
+        kinds = ["mimetypes"]
+    bases = [os.path.expanduser("~/.local/share/icons"), os.path.expanduser("~/.icons"), "/usr/local/share/icons", "/usr/share/icons"]
+    found = ""
+    for name in names:
+        for theme in themes:
+            for base in bases:
+                root = os.path.join(base, theme)
+                if not os.path.isdir(root):
+                    continue
+                for size in ("scalable", "512x512", "256x256", "128x128", "96x96", "64x64", "48x48"):
+                    for kind in kinds:
+                        for ext in (".svg", ".png"):
+                            path = os.path.join(root, size, kind, name + ext)
+                            if os.path.isfile(path):
+                                found = path
+                                break
+                        if found:
+                            break
+                    if found:
+                        break
+                if found:
+                    break
+            if found:
+                break
+        if found:
+            break
+    cache[mime] = found
+    return found
+
+
+def list_shelf(folder, make=True):
+    folder = os.path.expanduser(folder)
+    tools = thumbnailers()
+    themes, icons = icon_themes(), {}
+    out = []
+    try:
+        entries = [e for e in os.scandir(folder) if not e.name.startswith(".")]
+    except OSError:
+        entries = []
+    for e in entries:
+        try:
+            t = e.stat().st_mtime
+        except OSError:
+            continue
+        mime = mime_of(e.path)
+        if mime in IMAGE_TYPES:
+            preview = e.path
+        elif mime == "inode/directory":
+            preview = ""
+        else:
+            preview = thumbnail(e.path, mime, tools, make)
+        w, h = size_of(preview) if preview else (0, 0)
+        out.append((t, w, h, e.path, preview, mime, "" if preview else icon_for(mime, themes, icons)))
+    out.sort(key=lambda r: (-r[0], r[3]))
+    sys.stdout.write("".join(f"{t:.3f}\t{w}\t{h}\t{p}\t{v}\t{m}\t{i}\n" for t, w, h, p, v, m, i in out))
+
+
+def make_thumbnails(folder):
+    folder = os.path.expanduser(folder)
+    tools = thumbnailers()
+    made = 0
+    try:
+        entries = [e for e in os.scandir(folder) if not e.name.startswith(".") and e.is_file()]
+    except OSError:
+        entries = []
+    for e in entries:
+        mime = mime_of(e.path)
+        if mime in IMAGE_TYPES or not tools.get(mime) or thumbnail(e.path, mime, tools, False):
+            continue
+        if thumbnail(e.path, mime, tools):
+            made += 1
+    print(made)
+
+
+def free_name(folder, name):
+    base, ext = os.path.splitext(name)
+    candidate, n = os.path.join(folder, name), 2
+    while os.path.lexists(candidate):
+        candidate = os.path.join(folder, f"{base} {n}{ext}")
+        n += 1
+    return candidate
+
+
+def add(folder, uris):
+    folder = os.path.expanduser(folder)
+    os.makedirs(folder, exist_ok=True)
+    for uri in uris:
+        uri = uri.strip()
+        try:
+            if uri.startswith("file://"):
+                src = urllib.parse.unquote(urllib.parse.urlparse(uri).path)
+                if os.path.dirname(os.path.abspath(src)) == os.path.abspath(folder):
+                    continue    # already on the shelf (dragged out and back in)
+                dst = free_name(folder, os.path.basename(src.rstrip("/")) or "file")
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst, symlinks=True)
+                else:
+                    shutil.copy2(src, dst)
+                os.utime(dst)   # the shelf is newest first by when things arrived, not when they were made
+            elif uri.startswith(("http://", "https://")):
+                name = os.path.basename(urllib.parse.urlparse(uri).path) or "download"
+                dst = free_name(folder, urllib.parse.unquote(name))
+                with urllib.request.urlopen(uri, timeout=20) as r, open(dst, "wb") as f:
+                    shutil.copyfileobj(r, f)
+            else:
+                continue
+            print(dst, flush=True)
+        except (OSError, ValueError, urllib.error.URLError) as e:
+            print(f"shelf: {uri}: {e}", file=sys.stderr)
+
+
+def keep(folder, path):
+    folder = os.path.expanduser(folder)
+    os.makedirs(folder, exist_ok=True)
+    dst = free_name(folder, os.path.basename(path))
+    try:
+        os.link(path, dst)
+    except OSError:
+        try:
+            shutil.copy2(path, dst)
+        except OSError as e:
+            print(f"shelf: {path}: {e}", file=sys.stderr)
+            return
+    print(dst, flush=True)
+
+
+def transfer():
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio, GLib
+
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    args = ("org.freedesktop.portal.Documents", "/org/freedesktop/portal/documents", "org.freedesktop.portal.FileTransfer")
+    for line in sys.stdin:
+        path = line.rstrip("\n")
+        if not path:
+            continue
+        try:
+            opts = {"writable": GLib.Variant("b", False), "autostop": GLib.Variant("b", False)}
+            key = bus.call_sync(*args, "StartTransfer", GLib.Variant("(a{sv})", (opts,)), GLib.VariantType("(s)"),
+                                Gio.DBusCallFlags.NONE, -1, None).unpack()[0]
+            fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC)
+            fds = Gio.UnixFDList.new()
+            index = fds.append(fd)
+            os.close(fd)
+            bus.call_with_unix_fd_list_sync(*args, "AddFiles", GLib.Variant("(saha{sv})", (key, [index], {})), None,
+                                            Gio.DBusCallFlags.NONE, -1, fds, None)
+            print(f"{key}\t{path}", flush=True)
+        except Exception as e:  # no portal, file gone...
+            print(f"error: {e}".replace("\t", " ").replace("\n", " ") + f"\t{path}", file=sys.stdout, flush=True)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) >= 3 and sys.argv[1] == "list":
+        list_shelf(sys.argv[2], "--cached" not in sys.argv[3:])
+    elif len(sys.argv) == 3 and sys.argv[1] == "thumbnails":
+        make_thumbnails(sys.argv[2])
+    elif len(sys.argv) >= 3 and sys.argv[1] == "add":
+        add(sys.argv[2], sys.argv[3:])
+    elif len(sys.argv) == 4 and sys.argv[1] == "keep":
+        keep(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 2 and sys.argv[1] == "transfer":
+        transfer()
+    else:
+        sys.exit(__doc__)

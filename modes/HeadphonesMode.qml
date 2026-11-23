@@ -63,7 +63,7 @@ IslandMode {
             height: mode.layout.iconSize
             scale: mode.iconPop
             name: mode.layout.icon
-            color: Config.colors.text
+            color: palette.windowText
         }
         TitleStack {
             id: lines

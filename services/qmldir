@@ -1,3 +1,4 @@
 singleton Sys 1.0 Sys.qml
 singleton Config 1.0 Config.qml
 singleton Activity 1.0 Activity.qml
+singleton Inbox 1.0 Inbox.qml

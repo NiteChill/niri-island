@@ -43,7 +43,7 @@ Item {
         preferredRendererType: Shape.CurveRenderer
         ShapePath {
             strokeWidth: -1
-            fillColor: Config.colors.text
+            fillColor: palette.windowText
             PathSvg {
                 path: Config.roundedRectPath(art.width, art.height, Config.corner("tile", art.height), Config.island.cornerSmoothing)
             }
@@ -54,7 +54,7 @@ Item {
         anchors.fill: parent
         visible: !cover.ready
         radius: Config.corner("tile", height)
-        color: Config.colors.text
+        color: palette.windowText
         opacity: Config.activity.badgeOpacity
     }
     Icon {
@@ -63,6 +63,6 @@ Item {
         width: art.iconSize
         height: art.iconSize
         name: Config.media.art.icon
-        color: Config.colors.text
+        color: palette.windowText
     }
 }

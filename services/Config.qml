@@ -19,7 +19,7 @@ Singleton {
     property var data: build(userFile.text(), schemaFile.text())
 
     readonly property var font: data.font
-    // the island's own font, shipped in assets/fonts (font.bundled; SIL Open Font License): registered
+    // the shell's own font, shipped in assets/fonts (font.bundled, Allo; SIL Open Font License): registered
     // for this process when the config is first read, before any text asks for it, so the island looks
     // the same on every computer, with or without the font installed
     FontLoader {
@@ -35,13 +35,34 @@ Singleton {
     }
     // the desktop's accent name ("blue", "teal"... gsettings accent-color), set by Sys; "" = none known
     property string systemAccent: ""
+
+    // ---- light / dark ----
+    // The bar's icons stay white and the notch stays black whatever the mode; the dropdowns and the
+    // notification cards follow it: colors.scheme ("system" = the desktop's gsettings color-scheme,
+    // systemScheme, set by Sys; or "light" / "dark"). Their colors: colors.light / colors.dark.
+    property string systemScheme: ""
+    readonly property bool dark: colors.scheme === "dark" || (colors.scheme !== "light" && systemScheme === "prefer-dark")
+    readonly property var theme: dark ? colors.dark : colors.light
+    // the font's variable axes for a text of `pixelSize` and `weight`: its roundness (font.roundness), its
+    // weight, and its optical size (Allo draws small text sturdier and big text finer; font.opticalSize).
+    // The bundled font is one variable file, which Qt registers at its default weight only: every text
+    // sets its axes (StyledText, the TextInputs).
+    function axes(pixelSize, weight) {
+        const a = {
+            "ROND": font.roundness,
+            "wght": weight
+        };
+        if (font.opticalSize)
+            a.opsz = Math.max(font.opticalMin, Math.min(font.opticalMax, pixelSize));
+        return a;
+    }
+
     readonly property var bar: data.bar
     readonly property var island: data.island
     readonly property var motion: data.motion
     readonly property var activity: data.activity
     readonly property var panel: data.panel
-    readonly property var idle: data.idle
-    readonly property var calm: data.calm
+    readonly property var tray: data.tray
     readonly property var battery: data.battery
     readonly property var wifi: data.wifi
     readonly property var bluetooth: data.bluetooth
@@ -49,7 +70,7 @@ Singleton {
     readonly property var media: data.media
     readonly property var wallpaper: data.wallpaper
     readonly property var carousel: data.carousel
-    readonly property var screenshots: data.screenshots
+    readonly property var shelf: data.shelf
     readonly property var quickSettings: data.quickSettings
     readonly property var search: data.search
     readonly property var system: data.system
@@ -106,9 +127,13 @@ Singleton {
         const paths = [];
         const re = /<path\b[^>]*?\sd="([^"]*)"/g;
         let m;
-        // a path's first moveto is absolute even when written "m": keep it so once they're joined
+        // a path's first moveto is absolute even when written "m": keep it so once they're joined. The pairs
+        // right after an "m" are relative line-tos, so they get an explicit "l" (as a plain "M" they'd turn
+        // absolute: chevron-left.svg drew a slash)
+        const num = "[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[-+]?\\d+)?";
+        const lead = new RegExp("^m\\s*(" + num + ")[\\s,]*(" + num + ")(?=[\\s,]*[-+.\\d])", "i");
         while ((m = re.exec(svg)))
-            paths.push(m[1].trim().replace(/^m/, "M"));
+            paths.push(m[1].trim().replace(lead, (all, x, y) => all[0] === "m" ? "M" + x + " " + y + " l" : all).replace(/^m/, "M"));
         let g = null;
         if (box.length === 4 && box.every(n => !isNaN(n)) && paths.length)
             g = {
@@ -195,19 +220,20 @@ Singleton {
         };
     }
 
-    // ---- corners: one style for the island and everything in it (island.shape) ----
-    // Each style (island.shapes.<style>) gives a corner per role: island, attached, flare, pill, row, tile,
-    // small. Hand-tuned per style instead of a 0-1 scale, so every look a user can pick has been seen.
-    // Things hugging the island's edge (idle hover pills, activity badges) follow its corner instead
-    // (concentric: the island's corner minus the gap), never below `small`.
+    // ---- corners: one size per role (corners.*; the four corner styles were removed on 2026-11-23, the
+    // user: "this makes the code clearer") ----
+    // Roles: island (the pill-style notch), attached (the notch's bottom corners), flare, pill (100 = always
+    // a pill), row (list highlights), menu (dropdowns, cards), tile (pictures), small (keycaps, the floor).
+    // Things hugging an edge (badges) follow its corner instead (concentric: the corner minus the gap),
+    // never below `small`.
+    readonly property var corners: data.corners
 
-    // the style in use (an unknown name falls back to full)
-    readonly property var shape: island.shapes[island.shape] || island.shapes.full
-
-    // height of the resting island: the bar minus its gaps (attached to the top: no gap above)
-    readonly property real restHeight: bar.height - (island.attachToTop ? 1 : 2) * bar.gaps
-    // the resting island's corner (the bottom one when attached), for what sits against its edge
-    readonly property real restCorner: corner(island.attachToTop ? "attached" : "island", restHeight)
+    // the notch (island.style "notch": glued to the top edge, flares joining it) or a floating pill
+    readonly property bool attached: island.style !== "pill"
+    // height of a one-line pop-up in the island (volume, alerts): island.activityHeight
+    readonly property real restHeight: island.activityHeight
+    // that pop-up's corner (the bottom one in the notch), for what sits against its edge (badges)
+    readonly property real restCorner: corner(attached ? "attached" : "island", restHeight)
 
     // the glyph color on a solid fill: white on a dark or saturated one (blue, red), the island's black on a
     // light one (yellow, green, white), by the fill's luminance (colors.lightFill)
@@ -218,12 +244,12 @@ Singleton {
 
     // corner for `role` on something `size` tall: the style's value, never more than half the size
     function corner(role, size) {
-        return Math.max(0, Math.min(shape[role], size / 2));
+        return Math.max(0, Math.min(corners[role], size / 2));
     }
     // corner for something `size` tall sitting `inset` inside a shape whose corner is `outer`: concentric
     // with it, never below the style's `small` corner, never more than half the size
     function inner(outer, inset, size) {
-        return Math.max(0, Math.min(Math.max(outer - inset, shape.small), size / 2));
+        return Math.max(0, Math.min(Math.max(outer - inset, corners.small), size / 2));
     }
 
     // One continuous ("squircle") corner, Figma's corner smoothing: the arc is shortened and eased in by

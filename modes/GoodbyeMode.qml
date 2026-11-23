@@ -63,7 +63,7 @@ IslandMode {
 
         ShapePath {
             fillColor: "transparent"
-            strokeColor: Config.colors.text
+            strokeColor: palette.windowText
             strokeWidth: mode.look.strokeWidth
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin

@@ -967,8 +967,9 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   command swapped for `cat`); never trigger a real shutdown to test.
 
 ## Release (2026-11-17)
-The bar + notch redesign is on main since 2026-11-24, but no release was made for it yet: v0.1.0 is
-still the island-only version.
+v0.2.0 (2026-11-24) is the bar + notch redesign (on main since that day); v0.1.0 is the island-only
+version, and the `v0.1-island` tag its last state. Release notes follow v0.1.0's shape: what's in it,
+niri-settings, what you need, install (gh release create, the tag on main).
 Published as https://github.com/NiteChill/niri-island (public, GPL-3.0-or-later, release v0.1.0), with
 the Settings app as https://github.com/NiteChill/niri-settings. README.md is for users: what it does,
 how it works with niri-settings, what it needs (Fedora / Arch packages), install (clone into

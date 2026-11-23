@@ -743,7 +743,9 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   (ScrollEnd, no movement) included, went to whatever was under it; a Horizontal WheelHandler never gets
   the end either. Now NotificationStack's two WheelHandlers pick the card under the pointer when a swipe
   starts (cardAt) and send it every event (NotificationCard.scrollEvent) until it's done; the card has
-  none of its own. A swipe whose end never comes is judged after swipe.lostEnd ms (no throw). Made-up
+  none of its own. In the history the list (a Flickable) takes scroll events before the stack, so it
+  has its own pair inside it (on its contentItem, ahead of it): sideways always, vertical only while a
+  card is being swiped (else up / down is the list's). Checked with a log of the user's swipes. A swipe whose end never comes is judged after swipe.lostEnd ms (no throw). Made-up
   events never showed this: test input paths with the user's real events (a log) when it's input.
   Hover opens a card only on real pointer moves (Inbox.pointerMoves, bumped by the stack's MovedHover):
   cards gliding up under a still pointer after a dismissal opened and closed as they passed ("they

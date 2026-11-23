@@ -105,7 +105,7 @@ Item {
         _routing = true;
         Qt.callLater(() => stack._routing = false);
         if (!swiped || !swiped.swiping)
-            swiped = cardAt(handler.point.position);
+            swiped = cardAt(stack.mapFromItem(null, handler.point.scenePosition.x, handler.point.scenePosition.y));
         if (!swiped || !swiped.scrollEvent) {
             swiped = null;
             event.accepted = false;
@@ -332,6 +332,23 @@ Item {
             // below are where they belong (a chip handed to the next row moves its card down inside the row
             // by exactly as much), so a removal moves nothing
             removeDisplaced: Transition {}
+            // the history's own swipe handlers: the list (a Flickable) takes scroll events before the stack
+            // would, so sideways swipes never reached it (declared here, they sit on the list's contentItem,
+            // ahead of it). Up / down stays the list's, except during a card's swipe (its end has no
+            // movement and only reaches a vertical handler).
+            WheelHandler {
+                id: listWheelX
+                orientation: Qt.Horizontal
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: event => stack.route(listWheelX, event)
+            }
+            WheelHandler {
+                id: listWheelY
+                orientation: Qt.Vertical
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                enabled: stack.swiped !== null
+                onWheel: event => stack.route(listWheelY, event)
+            }
             displaced: Transition {
                 NumberAnimation {
                     property: "y"

@@ -13,7 +13,7 @@ import "../widgets"
 //    focused app's name (bar.appName: a menu of what to do with its window), then the workspaces of this
 //    screen as dots (bar.workspaces: the active one a longer pill; a click on a dot goes there, a click
 //    elsewhere on them opens niri's overview)
-//  - right: the apps' tray icons (bar.tray), then Bluetooth, Wi-Fi, battery, quick settings and the clock,
+//  - right: the apps' tray icons (bar.tray), then Wi-Fi, battery, quick settings and the clock,
 //    each opening its dropdown under it (BarItem; anchorFor tells the dropdown where). The clock's is the
 //    calendar with the notification center under it; a dot by the clock = new notifications
 // The notch sits in the middle (shell.qml), over the bar. With bar.hideInFullscreen, a fullscreen window
@@ -82,7 +82,8 @@ Item {
             "system": logoItem,
             "app": appItem,
             "wifi": wifiItem,
-            "bluetooth": bluetoothItem,
+            // Bluetooth has no bar icon: its dropdown is reached from quick settings and hangs under it
+            "bluetooth": quickItem,
             "battery": batteryItem,
             "quickSettings": quickItem,
             "calendar": clockItem
@@ -432,14 +433,6 @@ Item {
             }
         }
 
-        BarItem {
-            id: bluetoothItem
-            onWantsOpen: bar.aimTo(dropdown)
-            onLeftItem: bar.aimCancel(dropdown)
-            dropdown: "bluetooth"
-            shown: Config.bar.bluetooth.show && Sys.bluetooth.available
-            Bluetooth {}
-        }
         BarItem {
             id: wifiItem
             onWantsOpen: bar.aimTo(dropdown)

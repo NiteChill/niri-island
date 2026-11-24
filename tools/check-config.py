@@ -40,11 +40,11 @@ REQUIRED = ("key", "label", "description", "type", "default")
 # types whose value is an object/list stored under a single key
 COMPOUND = {"spring", "object", "iconList", "actionList", "menuList", "stringList", "integerList", "command"}
 # helper functions / API on the Config singleton (not settings)
-CONFIG_API = {"icon", "glyph", "spring", "data", "handwriting", "corner", "inner", "restCorner", "restHeight", "onColor", "systemAccent", "cornerParams", "cornerSvg", "screenCorner", "roundedRectPath", "roundedRectLength", "theme", "dark", "axes", "attached", "systemScheme"}
+CONFIG_API = {"icon", "glyph", "spring", "data", "handwriting", "corner", "inner", "restCorner", "restHeight", "onColor", "systemAccent", "cornerParams", "cornerSvg", "screenCorner", "roundedRectPath", "roundedRectLength", "theme", "axes", "attached", "frosted"}
 # settings that no longer exist but that another program may still write (the niri-settings app's island
 # page, until it's updated for the menu bar): the shell ignores them; the check only warns, and --rewrite
 # drops them
-RETIRED = ("island.blur", "island.blurOpacity", "island.attachToTop", "island.shape", "island.shapes.", "idle.", "calm.")
+RETIRED = ("island.blur", "island.blurOpacity", "island.attachToTop", "island.shape", "island.shapes.", "idle.", "calm.", "colors.scheme", "colors.light.", "colors.dark.")
 
 
 def retired(key):

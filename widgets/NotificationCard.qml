@@ -388,7 +388,13 @@ Item {
 
     // ---- the card ----
     readonly property real corner: Config.corner("menu", height)
+    // the list it scrolls in (the history): only the part inside it is blurred (Frost)
+    property Item clipTo: null
+    // a Translate moving it from above (the history's drop-in), for the blur behind it (Frost can't read it)
+    property real shiftY: 0
+    // the shadow only on solid cards: under a see-through one (panel.blur) its dark middle showed through
     RectangularShadow {
+        visible: !Config.panel.blur.enabled
         anchors.fill: face
         radius: card.corner
         blur: card.layout.shadow.blur
@@ -399,11 +405,21 @@ Item {
         id: face
         anchors.fill: parent
         radius: card.corner
-        color: Config.theme.card
+        // frosted (panel.blur): Config.frosted
+        color: Config.frosted(Config.theme.card)
         border.width: card.layout.edgeWidth
         border.color: Qt.alpha(Config.theme.border, card.layout.edgeOpacity)
         palette.windowText: Config.theme.text
         palette.placeholderText: Config.theme.secondary
+
+        Frost {
+            anchors.fill: parent
+            radius: card.corner
+            clipTo: card.clipTo
+            // the card's own Translate (its swipe) and the one above it
+            dx: Math.max(0, card.pull)
+            dy: Math.min(0, card.lift) + card.shiftY
+        }
 
         HoverHandler {
             id: hover

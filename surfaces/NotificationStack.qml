@@ -23,12 +23,20 @@ Item {
     component Chip: Rectangle {
         property alias text: chipLabel.text
         property alias label: chipLabel
+        // a Translate moving it from above (the center's drop-in), for the blur behind it
+        property real shiftY: 0
         width: chipLabel.implicitWidth + 2 * Config.notifications.center.chipPadding
         height: Config.notifications.center.headerHeight
         radius: Config.corner("pill", height)
-        color: Config.theme.card
+        color: Config.frosted(Config.theme.card)
         border.width: Config.notifications.edgeWidth
         border.color: Qt.alpha(Config.theme.border, Config.notifications.edgeOpacity)
+        Frost {
+            width: parent.width
+            height: parent.height
+            radius: parent.radius
+            dy: parent.shiftY
+        }
         StyledText {
             id: chipLabel
             anchors.centerIn: parent
@@ -192,6 +200,8 @@ Item {
             easing.type: Easing.OutCubic
         }
     }
+    // what the center's drop-in Translate adds (the blur behind its cards and chips follows it: Frost)
+    readonly property real centerShift: (centerPresence - 1) * layout.center.drop
     // where it was last shown (kept while it fades out, the card being gone already)
     property rect _under: Qt.rect(0, 0, 0, 0)
     onUnderChanged: if (under.width > 0)
@@ -206,7 +216,7 @@ Item {
         opacity: stack.centerPresence
         // it comes down from the notch
         transform: Translate {
-            y: (stack.centerPresence - 1) * stack.layout.center.drop
+            y: stack.centerShift
         }
 
         // the header: two chips in the cards' color, the title at the left, Clear all at the right
@@ -215,13 +225,16 @@ Item {
             width: parent.width
             height: stack.layout.center.headerHeight
             Chip {
+                shiftY: stack.centerShift
                 text: stack.layout.center.title
                 label.font.weight: Config.panel.header.titleWeight
             }
             Chip {
                 id: clearChip
+                shiftY: stack.centerShift
                 visible: Inbox.count > 0
-                anchors.right: parent.right
+                // (placed, not anchored: its Frost reads its x, and reading an anchored x mid-layout looped)
+                x: parent.width - width
                 text: stack.layout.center.clearText
                 label.color: clearHover.hovered ? palette.windowText : palette.placeholderText
                 HoverHandler {
@@ -309,6 +322,12 @@ Item {
                         }
                     }
                     opacity: row.chipShown * clearFade
+                    Frost {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        clipTo: list
+                        dy: stack.centerShift
+                    }
                     StyledText {
                         id: chipText
                         anchors.centerIn: parent
@@ -324,6 +343,8 @@ Item {
                     uid: row.uid
                     leaving: row.leaving
                     inCenter: true
+                    clipTo: list
+                    shiftY: stack.centerShift
                     width: parent.width
                 }
             }

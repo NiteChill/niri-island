@@ -359,101 +359,47 @@
           ]
         },
         {
-          "title": "Light and dark",
+          "title": "Glass",
           "settings": [
             {
-              "key": "colors.scheme",
-              "label": "Light or dark",
-              "description": "Whether the dropdowns and the notification cards are light or dark. System = follow the desktop's choice (the settings app's Appearance page). The bar's icons stay white and the notch stays black either way.",
-              "type": "string",
-              "default": "system",
-              "choices": [
-                "system",
-                "light",
-                "dark"
-              ]
-            },
-            {
-              "key": "colors.light.surface",
-              "label": "Light: dropdowns",
-              "description": "The background of the dropdowns in light mode.",
-              "type": "color",
-              "default": "#f6f6f7"
-            },
-            {
-              "key": "colors.light.card",
-              "label": "Light: notification cards",
-              "description": "The background of the notification cards in light mode.",
-              "type": "color",
-              "default": "#ffffff"
-            },
-            {
-              "key": "colors.light.text",
-              "label": "Light: text",
-              "description": "Text in the dropdowns and on the cards in light mode.",
-              "type": "color",
-              "default": "#1c1c1e"
-            },
-            {
-              "key": "colors.light.secondary",
-              "label": "Light: grey text",
-              "description": "Captions, values and anything secondary in light mode.",
-              "type": "color",
-              "default": "#86868b"
-            },
-            {
-              "key": "colors.light.charging",
-              "label": "Light: charging green",
-              "description": "The charging green on a light background (the light one would be hard to read there).",
-              "type": "color",
-              "default": "#28a745"
-            },
-            {
-              "key": "colors.light.powerSaver",
-              "label": "Light: power saver yellow",
-              "description": "The power saver yellow on a light background.",
-              "type": "color",
-              "default": "#c79100"
-            },
-            {
-              "key": "colors.dark.surface",
-              "label": "Dark: dropdowns",
-              "description": "The background of the dropdowns in dark mode.",
+              "key": "colors.glass.surface",
+              "label": "Dropdowns",
+              "description": "The glass color of the dropdowns (see-through over the blur behind them: Dropdowns > Frosted glass > Tint).",
               "type": "color",
               "default": "#262628"
             },
             {
-              "key": "colors.dark.card",
-              "label": "Dark: notification cards",
-              "description": "The background of the notification cards in dark mode.",
+              "key": "colors.glass.card",
+              "label": "Notification cards",
+              "description": "The glass color of the notification cards and their chips.",
               "type": "color",
               "default": "#2c2c2e"
             },
             {
-              "key": "colors.dark.text",
-              "label": "Dark: text",
-              "description": "Text in the dropdowns and on the cards in dark mode.",
+              "key": "colors.glass.text",
+              "label": "Text",
+              "description": "Text in the dropdowns and on the notification cards.",
               "type": "color",
               "default": "#f2f2f2"
             },
             {
-              "key": "colors.dark.secondary",
-              "label": "Dark: grey text",
-              "description": "Captions, values and anything secondary in dark mode.",
+              "key": "colors.glass.secondary",
+              "label": "Grey text",
+              "description": "Captions, values and anything secondary in the dropdowns and on the cards.",
               "type": "color",
               "default": "#98989f"
             },
             {
-              "key": "colors.dark.charging",
-              "label": "Dark: charging green",
-              "description": "The charging green on a dark background.",
+              "key": "colors.glass.charging",
+              "label": "Charging green",
+              "description": "The charging green in the dropdowns and on the cards.",
               "type": "color",
               "default": "#95FD83"
             },
             {
-              "key": "colors.dark.powerSaver",
-              "label": "Dark: power saver yellow",
-              "description": "The power saver yellow on a dark background.",
+              "key": "colors.glass.powerSaver",
+              "label": "Power saver yellow",
+              "description": "The power saver yellow in the dropdowns and on the cards.",
               "type": "color",
               "default": "#FAC634"
             },
@@ -473,20 +419,14 @@
               "advanced": true
             },
             {
-              "key": "colors.light.border",
-              "label": "Light: edges",
-              "description": "The hairline around the dropdowns and the cards in light mode (at its opacity: panel.edgeOpacity, notifications.edgeOpacity).",
-              "type": "color",
-              "default": "#000000"
-            },
-            {
-              "key": "colors.dark.border",
-              "label": "Dark: edges",
-              "description": "The same in dark mode.",
+              "key": "colors.glass.border",
+              "label": "Edges",
+              "description": "The hairline edge around the dropdowns and the cards (its strength: Dropdowns > edge opacity, Notifications > edge opacity).",
               "type": "color",
               "default": "#ffffff"
             }
-          ]
+          ],
+          "description": "The colors of the dropdowns and the notifications: one glass look (there's no light theme, on purpose)."
         },
         {
           "id": "screenCorners",
@@ -948,7 +888,7 @@
               "label": "Workspaces",
               "description": "Show this screen's workspaces as dots: the one you're on is a longer pill, the ones with windows brighter. Click a dot to go there, around them for niri's overview.",
               "type": "boolean",
-              "default": true
+              "default": false
             },
             {
               "key": "bar.workspaces.size",
@@ -1051,7 +991,7 @@
               "label": "Date format",
               "description": "How the date before the time is written (empty = no date). ddd = short weekday, d = day, MMM = short month.",
               "type": "dateFormat",
-              "default": "ddd d MMM"
+              "default": ""
             },
             {
               "key": "bar.clock.timeFormat",
@@ -1121,24 +1061,6 @@
               "default": 0.45
             },
             {
-              "key": "bar.bluetooth.size",
-              "label": "Bluetooth icon size",
-              "description": "Size of the Bluetooth icon in the idle island.",
-              "type": "integer",
-              "min": 8,
-              "max": 40,
-              "step": 1,
-              "unit": "px",
-              "default": 16
-            },
-            {
-              "key": "bar.bluetooth.icon",
-              "label": "Bluetooth icon",
-              "description": "Icon shown in the idle island while a Bluetooth device is connected.",
-              "type": "icon",
-              "default": "bluetooth.svg"
-            },
-            {
               "key": "bar.wifi.size",
               "label": "Wi-Fi icon size",
               "description": "Size of the Wi-Fi icon.",
@@ -1161,13 +1083,6 @@
                 "wifi2.svg",
                 "wifi3.svg"
               ]
-            },
-            {
-              "key": "bar.bluetooth.show",
-              "label": "Bluetooth",
-              "description": "Show the Bluetooth icon (with an adapter): bright while Bluetooth is on, dim while off. Click it for the Bluetooth dropdown.",
-              "type": "boolean",
-              "default": true
             },
             {
               "key": "bar.wifi.show",
@@ -1227,7 +1142,7 @@
               "label": "Quick settings icon",
               "description": "The quick settings icon.",
               "type": "icon",
-              "default": "page-info-outline.svg"
+              "default": "control-center.svg"
             },
             {
               "key": "bar.quickSettings.size",
@@ -2535,6 +2450,39 @@
       "icon": "layers",
       "description": "The shared look and motion of the dropdowns that open under the bar (Wi-Fi, Bluetooth, battery, quick settings, calendar, search...).",
       "groups": [
+        {
+          "title": "Frosted glass",
+          "settings": [
+            {
+              "key": "panel.blur.enabled",
+              "label": "Frosted glass",
+              "description": "The dropdowns and the notifications are see-through glass that blurs what's behind them. Needs niri 26.04 or later (with its blur set up); off = solid.",
+              "type": "boolean",
+              "default": true
+            },
+            {
+              "key": "panel.blur.opacity",
+              "label": "Tint",
+              "description": "How much of the glass color (Appearance > Glass) covers the blurred background behind the dropdowns and the notifications: higher is more solid and easier to read, lower shows more of what's behind.",
+              "type": "number",
+              "min": 0,
+              "max": 1,
+              "step": 0.01,
+              "default": 0.5
+            },
+            {
+              "key": "panel.blur.showAbove",
+              "label": "Blur while",
+              "description": "The blur can't fade with the dropdown: it shows only while the dropdown is at least this visible (opening, it comes a little late; closing, it goes a little early).",
+              "type": "number",
+              "min": 0,
+              "max": 1,
+              "step": 0.05,
+              "default": 0.5,
+              "advanced": true
+            }
+          ]
+        },
         {
           "id": "layout",
           "title": "Layout",
@@ -6716,12 +6664,23 @@
             {
               "key": "search.panel.merge",
               "label": "Merge spring",
-              "description": "How the pill is drawn back into the notch when the search closes (no bounce by default, so closing feels quick).",
+              "description": "How fast the pill is swallowed back into the notch when the search closes. Quicker than the notch's own shrinking, so the notch eats it rather than both heading to one point. No bounce by default.",
               "type": "spring",
               "default": {
-                "response": 0.34,
+                "response": 0.24,
                 "dampingFraction": 1
               },
+              "advanced": true
+            },
+            {
+              "key": "search.panel.mergeGapAt",
+              "label": "Closing: joins the notch at",
+              "description": "Closing, the pill's top rises into the notch first, so the two are one liquid shape while the rest of it is drawn in. This is how far along the closing (1 = at its place, 0 = gone) the gap is already closed: higher closes it sooner.",
+              "type": "number",
+              "min": 0,
+              "max": 1,
+              "step": 0.05,
+              "default": 0.75,
               "advanced": true
             },
             {

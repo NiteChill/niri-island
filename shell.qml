@@ -40,6 +40,15 @@ ShellRoot {
         Activity.open(name);
         keyboardOpened = byKeyboard && Activity.anyOpen;
     }
+    // closed from elsewhere (Activity.closeAll: a notification clicked, the center's own close): a dropdown
+    // opened from the keyboard mustn't keep the keyboard after it's gone
+    Connections {
+        target: Activity
+        function onAnyOpenChanged() {
+            if (!Activity.anyOpen)
+                root.keyboardOpened = false;
+        }
+    }
     function holdKeyboard() {
         keyHeld = true;
         keyCatcher.forceActiveFocus();
@@ -100,6 +109,9 @@ ShellRoot {
         mask: Region {
             item: barArea
             Region {
+                item: outside
+            }
+            Region {
                 item: island
             }
             Region {
@@ -122,6 +134,59 @@ ShellRoot {
             }
             Region {
                 item: underArea
+            }
+        }
+        // click outside to close (island.clickOutsideCloses), on this screen: while something is open the
+        // whole window takes the pointer, and a press that lands on nothing drawn closes it. Declared first,
+        // so it sits under everything; presses inside what's drawn (a card's padding, the gap under the bar)
+        // are left alone, the bar's empty space is the bar's own (Bar.emptyClicked). It was a separate
+        // full-screen window on the Top layer, but niri draws a fullscreen window above the Top layer: over
+        // a fullscreen window, clicking outside did nothing (2026-11-25).
+        MouseArea {
+            id: outside
+            readonly property bool on: Config.island.clickOutsideCloses && Activity.anyOpen && !Activity.draggingOut
+            width: on ? topBar.width : 0
+            height: on ? topBar.height : 0
+            acceptedButtons: Qt.AllButtons
+            // (x, y) in this item lands on nothing drawn
+            function missesAll(x, y) {
+                for (const it of [barArea, dropArea, bridgeArea, tabsArea, stackArea, dropHold, underArea, island])
+                    if (it.width > 0 && it.contains(it.mapFromItem(outside, x, y)))
+                        return false;
+                return true;
+            }
+            onPressed: mouse => {
+                if (missesAll(mouse.x, mouse.y))
+                    root.open("idle", false);
+            }
+        }
+        // frosted glass (panel.blur): niri blurs behind every frosted surface shown (the dropdown card, the
+        // notification cards and chips: Glass.rects, from each widgets/Frost), one Region each
+        // (ext-background-effect; niri 26.04+). Their corners are plain arcs: the surfaces' smoothed ones
+        // cover them
+        BackgroundEffect.blurRegion: Region {
+            id: frostRegion
+        }
+        Instantiator {
+            id: frostRegions
+            model: Glass.rects.length
+            property var made: []
+            delegate: Region {
+                required property int index
+                readonly property var g: Glass.rects[index] || null
+                x: g ? g.x : 0
+                y: g ? g.y : 0
+                width: g ? g.w : 0
+                height: g ? g.h : 0
+                radius: g ? g.r : 0
+            }
+            onObjectAdded: (index, object) => {
+                made.splice(index, 0, object);
+                frostRegion.regions = made;
+            }
+            onObjectRemoved: (index, object) => {
+                made.splice(made.indexOf(object), 1);
+                frostRegion.regions = made;
             }
         }
         // the screen's top edge while a fullscreen window hides the bar: resting the pointer there brings
@@ -319,18 +384,18 @@ ShellRoot {
         }
     }
 
-    // click outside to close (island.clickOutsideCloses): while something is open, a transparent
-    // full-screen layer on the Top layer (under the bar's Overlay one) takes clicks that miss it and closes
-    // it. A layer surface never hears about clicks outside itself, hence the separate window. Mapped only
-    // while something is open, so it costs nothing otherwise. One per screen.
+    // click outside to close, on the other screens (the bar's screen has its own: topBar's `outside`):
+    // while something is open, a transparent full-screen layer takes the clicks there and closes it. A layer
+    // surface never hears about clicks outside itself, hence the separate window. On the Overlay layer
+    // (niri draws fullscreen windows above the Top layer). Mapped only while something is open.
     Variants {
-        model: Quickshell.screens
+        model: Quickshell.screens.filter(s => s !== topBar.screen)
         // qmllint disable uncreatable-type
         PanelWindow {
             required property ShellScreen modelData
             screen: modelData
             visible: Config.island.clickOutsideCloses && Activity.anyOpen && !Activity.draggingOut
-            WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.namespace: "quickshell-dismiss"
             exclusionMode: ExclusionMode.Ignore
             anchors {

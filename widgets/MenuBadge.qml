@@ -11,8 +11,8 @@ import "../services"
 // mode opens it down and to the left, kept inside the panel): position, size and corner on one spring that
 // doesn't overshoot, the glyph and the word fading out, the rows fading and sliding in one after another.
 // A row picks its choice and closes; so does `close()` (the mode calls it for Escape and clicks elsewhere).
-// The open menu keeps the badge's own soft color (the current choice's tint over the island, made opaque so
-// it covers what's under it), no outline; the mode blurs the rest of the panel behind it (`t`).
+// The open menu is a frosted card like the dropdowns' (Config.frosted, their hairline edge); the mode blurs
+// the rest of the panel behind it (`t`).
 // Keyboard (driven by the mode, which also highlights the badge's tile): openFromKeys() opens it with the
 // current row lit, moveKey(±1) moves the lit row, pickKey() picks it. The pointer lights rows the same way.
 // Settings: quickSettings.toggle (the badge, the word), quickSettings.power.menu (the menu and the motion).
@@ -69,8 +69,10 @@ Item {
     readonly property color tint: choice ? choice.tint : palette.windowText
     // solid in the choice's color; soft when that color is plain text (balanced: nothing special on)
     readonly property bool solid: !Qt.colorEqual(tint, palette.windowText)
-    // the open menu's surface: the soft badge's color, opaque (the current choice's tint over the island)
-    readonly property color surface: Qt.tint(palette.window, Qt.alpha(tint, Config.activity.badgeOpacity))
+    // the open menu's surface: the dropdowns' frosted card (Config.frosted, the theme's surface) with their
+    // hairline edge, over the rest of the panel blurred behind it (2026-11-25, the user: "make it be more like
+    // the rest"; it was the soft badge's tinted color, opaque)
+    readonly property color surface: Config.frosted(Config.theme.surface)
 
     // ---- sizes ----
     readonly property real badgeSize: toggle.badgeSize
@@ -160,7 +162,11 @@ Item {
             anchors.fill: parent
             radius: body.corner
             color: menu.surface
-            visible: menu.openness > 0.001 || menu.press < 1
+            border.width: Config.panel.edgeWidth
+            border.color: Qt.alpha(Config.theme.border, Config.panel.edgeOpacity)
+            // it takes over from the badge's fill as the shape opens
+            opacity: menu.t
+            visible: menu.openness > 0.001
         }
         Rectangle {
             anchors.fill: parent

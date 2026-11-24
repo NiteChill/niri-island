@@ -187,9 +187,11 @@ Item {
                 return;
             }
             const name = t.scenes[t.index];
+            // the frosted surfaces (panel.blur, Glass): where niri would blur, for the composition
+            const glass = Glass.rects.map(g => [g.x, g.y, g.w, g.h, g.r].join(",")).join(";");
             scene.grabToImage(r => {
                 r.saveToFile("%(out)s/" + name + ".png");
-                console.warn("DEMO-SHOT " + name);
+                console.warn("DEMO-SHOT " + name + " GLASS " + glass);
                 t.next();
             }, Qt.size(scene.width * %(scale)d, scene.height * %(scale)d));
         }
@@ -198,8 +200,20 @@ Item {
 """
 
 
-def over(wall, shot):
+# niri's blur behind the frosted surfaces (2 passes, offset 2: about this Gaussian radius, logical px)
+BLUR = 6
+
+
+def over(wall, shot, glass=()):
     w = Image.open(wall).convert("RGBA").resize(shot.size, Image.BICUBIC)
+    # the frosted surfaces (dropdowns, notification cards): the wallpaper blurred under them, as niri does
+    # on screen (a grab can't see it)
+    if glass:
+        mask = Image.new("L", w.size, 0)
+        draw = ImageDraw.Draw(mask)
+        for x, y, cw, ch, r in glass:
+            draw.rounded_rectangle((x * SCALE, y * SCALE, (x + cw) * SCALE, (y + ch) * SCALE), r * SCALE, fill=255)
+        w = Image.composite(w.filter(ImageFilter.GaussianBlur(BLUR * SCALE)), w, mask)
     w.alpha_composite(shot)
     return w.convert("RGB")
 
@@ -256,7 +270,9 @@ def main():
             shutil.copy(log, os.path.join(ROOT, "readme-images.log"))
             sys.exit("readme-images: not every scene was captured; see readme-images.log")
 
-        g = {n: over(wall, Image.open(os.path.join(shots, n + ".png")).convert("RGBA")) for n in SCENES}
+        glass = {m.group(1): [[int(v) for v in r.split(",")] for r in m.group(2).split(";") if r]
+                 for m in re.finditer(r"DEMO-SHOT (\w+) GLASS ([-\d,;]*)", text)}
+        g = {n: over(wall, Image.open(os.path.join(shots, n + ".png")).convert("RGBA"), glass.get(n, ())) for n in SCENES}
         W = g["hero"].width
         bar_h = 38 * SCALE
 

@@ -107,12 +107,12 @@ Singleton {
     // ==========================================
 
     // the few desktop-wide settings the island follows, as written by the settings app (or GNOME, or
-    // `gsettings set`): { accent: "blue" | "teal" | ... | "" (unknown), clockFormat: "24h" | "12h" | "",
-    // colorScheme: "prefer-dark" | "prefer-light" | "default" | "" }.
+    // `gsettings set`): { accent: "blue" | "teal" | ... | "" (unknown), clockFormat: "24h" | "12h" | "" }.
+    // (Not the color scheme: there's one glass look, no light theme.)
     // Read once at startup, then from `gsettings monitor`, which prints a line per change (nothing polls).
     // Replaced only when one of these values changes.
-    property var _desktop: ({ "accent": "", "clockFormat": "", "colorScheme": "" })
-    readonly property var _desktopKeys: ({ "accent-color": "accent", "clock-format": "clockFormat", "color-scheme": "colorScheme" })
+    property var _desktop: ({ "accent": "", "clockFormat": "" })
+    readonly property var _desktopKeys: ({ "accent-color": "accent", "clock-format": "clockFormat" })
     // one line of `gsettings get`/`list-recursively` ("org.gnome.desktop.interface accent-color 'blue'")
     // or `gsettings monitor` ("accent-color: 'blue'")
     function _desktopLine(line) {
@@ -131,13 +131,6 @@ Singleton {
         target: Config
         property: "systemAccent"
         value: root._desktop.accent
-    }
-    // light or dark (gsettings color-scheme), for Config.theme: the dropdowns and the notification cards
-    // follow it (the bar and the notch don't change)
-    Binding {
-        target: Config
-        property: "systemScheme"
-        value: root._desktop.colorScheme
     }
     Process {
         id: desktopRead

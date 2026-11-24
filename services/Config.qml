@@ -36,13 +36,11 @@ Singleton {
     // the desktop's accent name ("blue", "teal"... gsettings accent-color), set by Sys; "" = none known
     property string systemAccent: ""
 
-    // ---- light / dark ----
-    // The bar's icons stay white and the notch stays black whatever the mode; the dropdowns and the
-    // notification cards follow it: colors.scheme ("system" = the desktop's gsettings color-scheme,
-    // systemScheme, set by Sys; or "light" / "dark"). Their colors: colors.light / colors.dark.
-    property string systemScheme: ""
-    readonly property bool dark: colors.scheme === "dark" || (colors.scheme !== "light" && systemScheme === "prefer-dark")
-    readonly property var theme: dark ? colors.dark : colors.light
+    // ---- the glass ----
+    // One look, no light theme (2026-11-25, the user: "no light theme. only a single glass like ui. it's
+    // readable like that"): the dropdowns and the notification cards are frosted glass in colors.glass,
+    // whatever the desktop's color scheme. The bar's icons stay white and the notch stays black.
+    readonly property var theme: colors.glass
     // the font's variable axes for a text of `pixelSize` and `weight`: its roundness (font.roundness), its
     // weight, and its optical size (Allo draws small text sturdier and big text finer; font.opticalSize).
     // The bundled font is one variable file, which Qt registers at its default weight only: every text
@@ -234,6 +232,12 @@ Singleton {
     readonly property real restHeight: island.activityHeight
     // that pop-up's corner (the bottom one in the notch), for what sits against its edge (badges)
     readonly property real restCorner: corner(attached ? "attached" : "island", restHeight)
+
+    // a frosted surface's color (panel.blur: the dropdowns, the notification cards and chips): see-through
+    // over niri's blur (widgets/Frost), panel.blur.opacity; opaque with the blur off
+    function frosted(color) {
+        return panel.blur.enabled ? Qt.alpha(color, panel.blur.opacity) : color;
+    }
 
     // the glyph color on a solid fill: white on a dark or saturated one (blue, red), the island's black on a
     // light one (yellow, green, white), by the fill's luminance (colors.lightFill)

@@ -4,10 +4,10 @@ QML shell for Quickshell 0.3 on niri (Wayland, Fedora). Entry point: `shell.qml`
 Since 2026-11-23 (built on the `menu-bar` branch, merged into main on 2026-11-24; the previous island-only
 design is the `v0.1-island` tag, pushed so the README's pointer works) the shell
 is a top bar like macOS's with a notch in the middle like the iPhone's Dynamic Island:
-- the **bar**: the focused app and the workspaces at the left; the tray, Bluetooth, Wi-Fi, battery, quick
+- the **bar**: the focused app and the workspaces at the left; the tray, Wi-Fi, battery, quick
   settings and the clock at the right, white over a black-to-transparent gradient. Each icon opens its
-  **dropdown** right under it (Wi-Fi, Bluetooth, battery, quick settings, calendar): calm, Mac-menu-like
-  (a title, a switch, the list), in the light / dark theme.
+  **dropdown** right under it (Wi-Fi, battery, quick settings, calendar; Bluetooth's from quick settings): calm, Mac-menu-like
+  (a title, a switch, the list), frosted glass (one look: no light theme).
 - the **notch** shows only what happens *now*: volume / brightness / mic feedback, alerts (low battery,
   charging, Wi-Fi connected, headphones, messages, goodbye) and the music playing (its base layer). A click
   on the music grows it into the media controls; a click on the resting notch opens the notification center.
@@ -47,7 +47,7 @@ names, and logic constants that are not a preference (e.g. array indexes, 6 degr
 shell.qml              entry point: ONE top window (Overlay layer, the whole screen tall, reserves bar.height,
                        takes the pointer only where something is drawn: `mask`), holding Bar, the notification
                        stack, the dropdown card and the notch (Island + AllModes); islandState (= Activity.current,
-                       else "rest"), root.open(name, byKeyboard), keyboard focus, IPC; the click-outside layer
+                       else "rest"), root.open(name, byKeyboard), keyboard focus, IPC; click outside (`outside`)
 ScreenCorners.qml      rounded screen corners (config screenCorners): 4 click-through overlay windows per screen
 surfaces/
   Bar.qml              the bar: gradient, app name + workspace dots (left), tray + status icons + clock (right,
@@ -72,8 +72,8 @@ config/
   config.schema.json   that editor schema (allowComments, allowTrailingCommas). Not the settings' schema
 services/              singletons (registered in services/qmldir)
   Config.qml           schema defaults + config.jsonc; Config.<section>.<key>. Also the corner helpers
-                       (Config.corner / inner / restCorner / restHeight / attached), the theme (Config.dark,
-                       Config.theme = colors.light / colors.dark, systemScheme set by Sys) and the font's axes
+                       (Config.corner / inner / restCorner / restHeight / attached), the glass's colors (Config.theme =
+                       colors.glass; Config.frosted(color) = see-through over the blur) and the font's axes
                        (Config.axes(size, weight)). Each section is a `readonly property var foo: data.foo` line
   Sys.qml              ALL system data and actions: niri (one event stream: workspaces, focusedApp, overview,
                        fullscreen; focusWorkspace / toggleOverview), battery + power profile + time left, audio
@@ -112,10 +112,10 @@ widgets/               reusable pieces
   PanelHeader (a dropdown's title + something at the right)  Switch (the header's on / off)
   NotificationCard (one card: time, title, message, picture / app icon; urgent = red; screenshot = a pile;
   hover = whole text, buttons, ×; drag / scroll up = away)
-  Badge  TitleStack  Battery  Wifi  Bluetooth (the bar's icons, always white there)  CutoutBadge (a glyph cut
+  Badge  TitleStack  Battery  Wifi (the bar's icons, always white there)  CutoutBadge (a glyph cut
   into a thing's corner: the battery's bolt)  CornerShape  Speaker  LevelSlider  LevelRow  QuickToggle
   MenuBadge  MediaBars  MediaCover  PictureCarousel  PanelList (the Wi-Fi / Bluetooth list chrome)
-  RollingName (the carousels' title)  ScrollFade (a list's edge fades, in palette.window)
+  RollingName (the carousels' title)  ScrollFade (a list's edge fades: a gradient in palette.window, or an alpha mask on a see-through card)
   RowHighlight (a list's lit row: springs while shown, fades out in place, jumps when it shows again)
   MovedHover (a HoverHandler reporting only real pointer moves: a still pointer leaves the keys in charge)
   DropZone (the drop zone's drawing: live in DropMode, muted as the empty shelf)  NotchTabs  Switch
@@ -124,13 +124,21 @@ assets/icons/          SVG icons, referenced by file name from the config: Mater
                        mixed Material icons on its 960 grid with others drawn on a 24 grid, heavier or lighter;
                        the user: "make sure they are all at the same optical stroke length"):
                        fonts.gstatic.com/s/i/short-term/release/materialsymbolsrounded/<name>/fill1/20px.svg.
-                       A new icon: the same URL, nothing else. One exception, the user's call (2026-11-24): the
-                       bar's quick settings icon is the outlined page_info (page-info-outline.svg, the URL's
-                       `default` instead of `fill1`). Kept as they were: battery.svg, gauge-balanced.svg,
+                       A new icon: the same URL, nothing else. (2026-11-24 the bar's quick settings icon was the
+                       outlined page_info, page-info-outline.svg, kept in the folder; since 2026-11-25 it's
+                       control-center.svg, below.) Kept as they were: battery.svg, gauge-balanced.svg,
                        skip-triangle.svg (adjusted / derived),
                        volume-level0 / level1.svg (volume-up's speaker at its place, the right left empty: Material
                        centres each, so the bright level slid off the dim full speaker under it, 2026-11-24), the distro logos. Phosphor was tried the same day
                        ("looks off here"); SF Symbols can't be shipped (Apple's licence).
+                       Also drawn by hand, the user's call (2026-11-25, "pixel by pixel"): control-center.svg
+                       (macOS's Control Center glyph, two switches; the knob's gap to the outline, 1.7 units, held
+                       by hand: the blurred screenshot let the fit close it, and at 16 px it merged), wifi1-3.svg (the fan of
+                       the iPhone's combined status glyph), bluetooth.svg (a rune as round-capped capsules of one
+                       winding) and battery.svg (iOS 27's: body with Apple's continuous corners, r 21.3 on 65.8,
+                       a flat-backed nub), each fitted to the user's screenshots by least squares on pixel
+                       coverage (battery: <1 % mean difference). They're traced from Apple's glyphs: keep them
+                       out of the public repo unless the user decides otherwise (the licence note above).
                        Drawn by widgets/Icon: <path> elements only, a viewBox, no transforms, no strokes. A path
                        starting with a relative "m x y" + more pairs works (Config._svg adds the "l")
 assets/fonts/          Allo (AlloVariable.ttf, OFL, assets/fonts/OFL.txt): axes opsz 9-32, wght 100-900, ROND 0-100
@@ -161,13 +169,15 @@ hand-written `qmldir` (for the singletons).
 3. `python3 tools/check-config.py --rewrite` lists it in config.jsonc, commented out at its default (don't
    hand-add active values there: an active line is the user's override, not a default).
    A corner: never a raw `radius:` or a new radius setting; pick a role, `Config.corner("row", height)`.
-   A color that differs between light and dark: a `colors.light.x` + `colors.dark.x` pair, read as
-   `Config.theme.x` (white / black things that never change: `Config.colors.*`).
+   A color of the dropdowns / cards: `colors.glass.x`, read as `Config.theme.x` (white / black things that
+   never change: `Config.colors.*`). There is no light theme (2026-11-25, the user: "no light theme. only a
+   single glass like ui"): never add a light / dark pair. A frosted surface: `Config.frosted(color)` plus a
+   `Frost` in it (widgets/Frost: niri blurs behind it).
 4. A brand-new top-level section also needs `readonly property var foo: data.foo` in `services/Config.qml`.
 5. Run `python3 tools/check-config.py`; it must print `OK`.
 
 Section/group placement follows what the user would look for, not the code: Appearance (font, colors,
-light and dark), Bar (+ tray), Notch (`island.*`: shape, rest size, behavior), Animation, Pop-ups
+the glass), Bar (+ tray), Notch (`island.*`: shape, rest size, behavior), Animation, Pop-ups
 (`activity.*`), Dropdowns (`panel.*`: width, header, switch, lists, opening), then one section per
 dropdown / alert. Editing the JSON files with a script: build the whole text first, then write it at once
 (temp file + rename; the live shell reloads on save). schema.json is written with indent=2 and
@@ -220,7 +230,7 @@ Notifications are not notch activities: they go through Inbox (cards + center).
 - Quick load check: `timeout -s INT 4 qs -p . 2>&1 | grep -E "WARN|ERROR"` (SIGINT so the output flushes;
   "Could not register notification server" is expected for a second instance).
 - **Scratch copy** (the default way to test): `python3 tools/scratch-copy.py <scratchpad>/copy --tester
-  T.qml [--shelf DIR] [--light]` builds it: every command stubbed (search actions, files, the bar menus,
+  T.qml [--shelf DIR]` builds it: every command stubbed (search actions, files, the bar menus,
   the shelf's trash / clipboard), Sys's sounds / wallpaper / opening stubbed (they log "TEST ..."), the
   user's config.jsonc left out, its own shelf folder, `exclusiveZone: 0` (else the user's windows move)
   AND `keyboardFocus: None` (an open dropdown takes the keyboard exclusively: on 2026-11-23 the user's
@@ -231,7 +241,6 @@ Notifications are not notch activities: they go through Inbox (cards + center).
   grab's callback (grabbing then changing state in the same handler captures the new state). The grab is
   transparent: composite it over a wallpaper with PIL. A test-copy history / pins live in its own
   `~/.local/state/quickshell/by-shell/<id>`: delete that folder afterwards. Logs: `console.warn`.
-- Light mode: `--light` (never the user's gsettings).
 - Fake data for stress tests goes in the copy's Sys. Nothing in a test may connect, run commands or change
   the system. Never `niri msg action screenshot-screen` (it overwrites the user's clipboard).
 - Real input: `qs ipc call island toggle <name>` is harmless but a toggle. Never send real keys (`wtype`).
@@ -277,8 +286,10 @@ Notifications are not notch activities: they go through Inbox (cards + center).
   a role for sections, the delegate can read its data from the JS array by `index` (see SearchMode).
 - Don't cap lists for layout reasons: grow up to a `visibleRows` setting, then scroll (the user wants the free
   Wi-Fi 20 rows down to be reachable). Edge fades (`scrollFade`) show there's more: `widgets/ScrollFade.qml`
-  over the ListView, gradients in the surface's color (palette.window). (A MultiEffect mask, used while the
-  island could be blurred, needs maskThresholdMin 0.5 + maskSpreadAtMin 1 for a smooth ramp.)
+  over the ListView: gradients in the surface's color (palette.window) on an opaque surface, an alpha mask
+  on the list on a see-through one (the frosted dropdowns: a see-through gradient stacked on the card's
+  own fill and read as a dark band, 2026-11-25). The MultiEffect mask needs maskThresholdMin 0.5 +
+  maskSpreadAtMin 1 for a smooth ramp.
 - Keyboard scrolling: compute row positions yourself (headers, row height, an expanded row) and animate
   `contentY` to them, clamped to the content; ListView only estimates rows it hasn't created. Reveal on keyboard
   moves only, never on hover. Scrolling with the wheel re-selects the row under the pointer; the keyboard's own
@@ -364,7 +375,7 @@ activities, Raycast-style launchers, macOS Control Center, dark lists). Pasted i
 
 ### Language
 Each piece keeps the layout that suits it, but they all follow these rules.
-- The bar: white icons and text (`Config.colors.text`) always, whatever the light / dark mode, over the
+- The bar: white icons and text (`Config.colors.text`) always, over the
   gradient (bar.gradient: Apple's trick, readable on any wallpaper). The shade follows a curve,
   opacity * (1 - y)^curve over nine stops (0.3 at the top, ~0.2 behind the icons, a long soft tail over
   110 px): a straight two-stop fade ended in a visible line (the user, 2026-11-23). Status icons use the "dim base +
@@ -382,8 +393,8 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   (PanelHeader), then the list with small grey group titles, a springing highlight, a blue check on what's
   in use. No big symbols, gauges or pills: the big instruments of the island era (the battery's arc gauge,
   the Wi-Fi and Bluetooth symbols drawn as strokes, the time panel's day arc) were removed with it.
-  Light / dark from the desktop (Config.theme); accents stay the same, except the light theme's darker
-  charging green and power saver yellow (theme.charging / theme.powerSaver).
+  Frosted glass in one look (colors.glass, Config.frosted; there was a light theme following the desktop
+  until 2026-11-25, removed: "only a single glass like ui. it's readable like that").
 - The cards (notifications, 2026-11-23, the user's reference: an "Alerts 3" pill under a notch, NEW / OLD
   chips, white cards with the time in grey on top, the title, a picture at the right): the theme's card
   color (white in light mode), a soft shadow, `menu` corners; urgent ones filled red, text white.
@@ -399,7 +410,7 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   niri has no minimize). Rows follow the window (2026-11-24, "it stays maximize even when maximized"):
   a menuList row with `state` shows `onTitle` / `onIcon` while Sys.focusedState[state] is on (Float ->
   Tile, Maximize -> Restore, Fullscreen -> Exit fullscreen). niri gives is_floating; fullscreen and
-  maximized are measured (window = output size; column >= bar.appMenu.maximizedShare of its width) and the workspaces (Sys.workspaces, dots, the active one a longer pill). Both menus
+  maximized are measured (window = output size; column >= bar.appMenu.maximizedShare of its width) and the workspaces (Sys.workspaces, dots, the active one a longer pill; off by default since 2026-11-25, the user: "remove the workspace visualizer by default": bar.workspaces.show). Both menus
   are MenuMode with a menuList setting (bar.logo.items / bar.appMenu.items).
   Sys.focusedApp falls back to the focused workspace's active window: while the bar's window has the
   keyboard (a dropdown open) niri reports no focused window, and the app's name vanished (2026-11-23).
@@ -443,13 +454,14 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   scratch copy: quick settings -> down-left across the battery = aiming (waits); sideways along the bar =
   switches at once. shell.qml also adds the gap between the bar and the card to the window's input
   (bridgeArea), so the pointer never crosses "nothing" on the way down.
+- No Bluetooth icon (2026-11-25, the user: "it'll only ever stay in the quick settings"): its dropdown
+  opens from quick settings' Bluetooth word and hangs under the quick settings icon (anchorFor).
 - Right, in order: tray (Sys.trayItems; click = activate, or the menu for menu-only items; right click =
   the item's own menu via `item.display(window, x, y)`, drawn by the system; tray.monochrome off by
-  default: colorizing an icon drawn on a filled square gave a white square), Bluetooth (dim while off),
-  Wi-Fi (bars; wifi-off.svg while off), battery (the bolt / plus cut into its end:
+  default: colorizing an icon drawn on a filled square gave a white square), Wi-Fi (bars; wifi-off.svg while off), battery (the bolt / plus cut into its end:
   bar.battery.badge; in the alerts' color, Sys.battery.color, percentage included, since 2026-11-24: "make
-  the battery icon the same as in the alerts"; bar.battery.colored off = white like the rest), quick settings (tune.svg), the
-  clock (bar.clock.dateFormat "ddd d MMM" + the time). No volume icon (the user: "no sound slider in the
+  the battery icon the same as in the alerts"; bar.battery.colored off = white like the rest), quick settings (control-center.svg), the
+  clock: the time only (bar.clock.dateFormat "" since 2026-11-25, "only write the hour"; it was "ddd d MMM"). No volume icon (the user: "no sound slider in the
   top bar"): the volume is in quick settings and the notch.
 - Fullscreen (Sys.fullscreen: the active window of the active workspace is the output's logical size,
   overview closed): the bar slides up and fades (bar.hideInFullscreen); the notch stays. Resting the
@@ -534,8 +546,12 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   place and fades in; closing fades out in place (Island.keepSize holds the size; the anchor isn't moved
   for "": it slid to the screen's middle as it faded). Centred under its bar item,
   kept panel.margin inside the screen; search / wallpaper / screenshots hang under the notch.
-- Closing: Escape, a click outside (the click-catcher layer on the Top layer, mapped while
-  Activity.anyOpen), clicking its icon again. No auto-close when the mouse leaves (Mac menus don't).
+- Closing: Escape, a click outside, clicking its icon again. Click outside (2026-11-25): on the bar's screen,
+  topBar's own `outside` MouseArea (declared first: under everything) spans the window and joins its
+  input mask while Activity.anyOpen, and closes only for a press on nothing drawn (`missesAll`: a card's
+  padding mustn't close it); other screens keep a full-screen "quickshell-dismiss" layer, on Overlay.
+  It used to be one layer per screen on the Top layer: niri draws a fullscreen window above Top, so over
+  a fullscreen window a click outside did nothing. No auto-close when the mouse leaves (Mac menus don't).
 - Wi-Fi / Bluetooth: "Wi-Fi" + switch, then PanelList (saved, then others; Wi-Fi's password field inline
   under its row, Bluetooth's pairing / connecting states, as before). Nothing found yet: "Searching…".
   Scanning / discovery only while open (Binding on Sys.wifiScan / bluetoothScan).
@@ -578,6 +594,12 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   started the pill at ~30 ms with the notch 130 px wide, every opening but the first. Now a binding; measured over 6 openings (from rest, 250 / 700 ms after a close, over a volume pop-up):
   the pill starts at ~380 ms each time, the notch at 98 % of its width. Reopened while the last pill is
   still settling out of sight, it takes its new height at once (jumps while !pane.visible).
+  Closing (2026-11-25, "it has to close faster so that it doesn't just look like two shapes going to a
+  target point and more like one eating the other while shrinking"): pane.merging changes the body's
+  path, not only the spring: its top rises into the notch first (by search.panel.mergeGapAt, so the liquid
+  joins them at once), its bottom edge rises after it, on a quicker merge spring (0.34 -> 0.24 s).
+  Frames: at 44 ms it's joined to the notch, mostly swallowed by ~200 ms (the old one was still a separate
+  pill travelling up at 310 ms).
   Nothing typed = the grid: the favorites (the old pins) then "All apps" (search.apps.*: every app by
   name, a GridView whose header holds the favorites and the title; grid coordinates start at
   mode.gridTop = the header's y, negative). One selection across both (tileSelected: favorites, then
@@ -615,6 +637,13 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   (search.web.browserCommand) matched against niri's windows like a notification's sender (_senderWindow),
   its most recently focused window gets niri's focus-window;
   alone, it's what Enter picks. Not pinnable, not in file search.
+- Quick settings stays the row of circles (2026-11-25): two redesigns were built that day and reverted at
+  the user's request ("bring back the og control panel with the circles but keep the blur"): modules on
+  the card after the older macOS Control Center, then macOS Tahoe's floating glass pieces (each blurred on
+  its own). What stayed: the frosted card (panel.blur) under it, like every dropdown, and the power menu's
+  surface made from Config.theme.surface (palette.window is see-through now). If floating glass comes back:
+  a Quickshell Region given an `item` re-reads it only when that item's own geometry changes (it maps with
+  mapToScene), not when an ancestor moves: map the rectangles yourself in a binding that follows the card.
 - Quick settings dropdown (the bar's quick settings icon; designed 2026-11-14 as an island panel, the
   same inside the dropdown card since 2026-11-23, plus the sound output line). What follows is its
   original description; "panel" = the dropdown, "island" = the card:
@@ -909,7 +938,24 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   the 3 px gap and 38 px island put both edges mid-pixel, a faint row above and below that small corners
   (Square style) made obvious. Each edge snaps on its own (not position + size), so the content stays centred.
   Layout and transitions keep the exact size. Corner smoothing and blur weren't the cause (tested).
-- No blur (2026-11-23: island.blur was removed, "against the design"). niri-settings may still write
+- Frosted dropdowns (2026-11-25, the user asked whether blur should come back "instead of grey panels"):
+  real compositor blur, not the old in-shell one. niri 26.04 implements ext-background-effect; Quickshell
+  0.3's `BackgroundEffect.blurRegion: Region { item; radius }` (Quickshell.Wayland) asks for it on part of
+  a window. Every frosted surface (the dropdown card, the notification cards, the history's chips, all
+  "same everywhere") holds a widgets/Frost: it works out its rectangle in the window by walking up its
+  parents (x / y / opacity; not `visible` of each parent: that looped, its own `visible` already includes
+  them; not transforms: not bindable, so owners pass a Translate as dx / dy: a card's swipe, the history's
+  drop-in), clipped to a list it scrolls in (clipTo), and registers in the Glass singleton; shell.qml keeps
+  one Region per shown rectangle (an Instantiator filling frostRegion.regions). Quickshell's own `item`
+  regions re-read only the item's own geometry, not its parents'. Fills are Config.frosted(color)
+  (panel.blur.opacity); a frosted card has no shadow (its dark middle showed through). The notch stays solid
+  black (it pretends to be the screen's notch). The blur can't fade,
+  so it's there only while presence > panel.blur.showAbove. The user's niri config has a `blur` block and
+  an overlay layer-rule with background-effect (xray false). "Too blurry, make it more see through"
+  (2026-11-25): niri's blur went from 3 passes / offset 3 to 2 / 2 (~/.config/niri/config.kdl, `niri
+  validate`), the card's tint from 0.68 / 0.72 (dark / light) to 0.5 (panel.blur.opacity, one since the light theme went). It can't be captured from here (no grim;
+  never niri's screenshot action: the clipboard): preview pictures simulate it with a Gaussian blur.
+- No blur in the notch (2026-11-23: island.blur was removed, "against the design"). niri-settings may still write
   island.blur / blurOpacity / attachToTop into config.jsonc: check-config.py lists them as RETIRED (a
   note, not a failure) and --rewrite drops them.
 
@@ -973,8 +1019,8 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   config for shared values: the island follows the system. Today: the accent (gsettings accent-color, a
   name, mapped to a color by colors.systemAccents; Config.colors.accent returns it while
   colors.followSystemAccent) and the 12 / 24-hour clock (clock-format -> Sys.hour24, used by every clock;
-  time.followSystemClock; the bar's clock has bar.clock.timeFormat and timeFormat12h), and light / dark
-  (color-scheme -> Config.systemScheme -> Config.dark / Config.theme, unless colors.scheme forces one). One `gsettings
+  time.followSystemClock; the bar's clock has bar.clock.timeFormat and timeFormat12h); not the color
+  scheme (one glass look since 2026-11-25; check-config lists colors.scheme / colors.light.* as RETIRED). One `gsettings
   monitor` stream + a read at start, nothing polls. Focus (do not disturb) is GNOME's
   org.gnome.desktop.notifications show-banners (false = Focus on): Sys.systemFocus / setSystemFocus. Fedora's default clock-format is 12h (locale default,
   not user-set): set to 24h on 2026-11-16 to keep the user's island. Test with an isolated dconf db
@@ -1027,7 +1073,8 @@ docs/hero.png, panels.png and shelf.png (the README's pictures) are made here si
 `python3 tools/readme-images.py` (a scratch copy staged with made-up data: 9:41 on Tue 9 June, "Home" /
 "Buds", a made-up song from the start (a real one leaked into a first run when the demo song was toggled
 per scene), made-up notifications and shelf photos, no tray, "Files"; each scene set up only after the
-previous grab is saved; composed over a generated wallpaper). Look at every picture for anything
+previous grab is saved; composed over a generated wallpaper). The frosted surfaces are composed over the wallpaper blurred under Glass.rects (a grab can't see niri's
+blur). Look at every picture for anything
 private before it's committed. Remake them when the look changes. (The Settings app's own
 tools/capture-island.py still stages the island-only version for its showcase: not ours.)
 

@@ -3,6 +3,7 @@ import QtQuick
 import "../services"
 import "../island"
 import "../modes"
+import "../widgets"
 
 // The dropdowns' surface: one card under the bar (panel.gap below it) in the light / dark theme
 // (Config.theme), holding every dropdown (modes/AllDropdowns.qml) with the island's engine: switching
@@ -11,7 +12,7 @@ import "../modes"
 // kept panel.margin inside the screen; the others (search, wallpaper, screenshots) under the notch.
 // Opening from nothing: the card appears at its size and place (no spring from the last one) and fades in;
 // closing fades it out where it is. Between dropdowns the card morphs (size and place) and the contents
-// only crossfade (Island.plainFade).
+// only crossfade (Island.plainFade). Frosted (panel.blur, 2026-11-25): see-through, niri blurring behind it (Frost).
 Item {
     id: drop
 
@@ -80,6 +81,18 @@ Item {
     // the area that takes the pointer (none while hidden)
     readonly property rect inputRect: presence > 0 ? Qt.rect(surface.x, surface.y, surface.width, surface.height) : Qt.rect(0, 0, 0, 0)
 
+    // frosted glass (panel.blur): the card is see-through and niri blurs what's behind it (Frost)
+    readonly property color cardFill: Config.frosted(Config.theme.surface)
+    Frost {
+        x: surface.x
+        y: surface.y
+        width: surface.width
+        height: surface.height
+        radius: Config.corner("menu", surface.height)
+        // (read by Frost: the blur goes once the card is mostly faded, panel.blur.showAbove)
+        opacity: drop.presence
+    }
+
     Island {
         id: surface
         property bool instant: false
@@ -90,7 +103,7 @@ Item {
         restHeight: 0
         minWidth: 0
         keepSize: true
-        fill: Config.theme.surface
+        fill: drop.cardFill
         edgeColor: Qt.alpha(Config.theme.border, Config.panel.edgeOpacity)
         edgeWidth: Config.panel.edgeWidth
         textColor: Config.theme.text

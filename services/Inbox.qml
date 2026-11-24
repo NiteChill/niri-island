@@ -219,7 +219,8 @@ Singleton {
 
     // ---- what the user does ----
     // clicking a card: what the notification opens (its action, the window that sent it, the app), then
-    // it's done with (notifications.clickDismisses); a screenshot card opens the shelf
+    // it's done with (notifications.clickDismisses); a screenshot card opens the shelf. Whatever was open
+    // (the center, a dropdown) closes first: you're going to the app (the user, 2026-11-25)
     function open(uid) {
         const row = get(uid);
         if (!row)
@@ -229,6 +230,7 @@ Singleton {
             Activity.open("shelf");
             return;
         }
+        Activity.closeAll();
         const n = _live[uid];
         // gone (after a restart, or expired by the app): bring up the app that sent it
         Sys.openNotification(n || {
@@ -243,8 +245,9 @@ Singleton {
         else
             _hideBanner(uid);
     }
-    // one of the notification's own buttons
+    // one of the notification's own buttons (closes what's open, like a click on the card)
     function action(uid, id) {
+        Activity.closeAll();
         Sys.notificationAction(_live[uid], id);
         dismiss(uid);
     }

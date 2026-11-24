@@ -14,11 +14,12 @@ It is a community project, not part of niri.
 **The bar** (white icons over a soft shade, readable on any wallpaper):
 
 - At the left, your distribution's logo (places, search, lock, log out, restart, shut down), the app
-  you're in (fullscreen, maximize, float, center or close its window) and your workspaces as dots: click
-  a dot to go there, around them for niri's overview.
-- At the right, the apps' tray icons, then Bluetooth, Wi-Fi, battery, quick settings and the clock.
-  Each opens its **dropdown** right under it (light or dark, following your desktop):
-  - **Wi-Fi** and **Bluetooth**: a switch and the networks / devices nearby; connect, pair.
+  you're in (fullscreen, maximize, float, center or close its window), and, if you turn them on
+  (`bar.workspaces.show`), your workspaces as dots: click a dot to go there, around them for niri's
+  overview.
+- At the right, the apps' tray icons, then Wi-Fi, battery, quick settings and the clock.
+  Each opens its **dropdown** right under it, in frosted glass (niri's blur):
+  - **Wi-Fi** and **Bluetooth** (from quick settings): a switch and the networks / devices nearby; connect, pair.
   - **Battery**: the level, the time left, and the power mode.
   - **Quick settings**: Wi-Fi, Bluetooth, Focus (do not disturb), microphone, power mode, brightness,
     volume and where the sound goes.

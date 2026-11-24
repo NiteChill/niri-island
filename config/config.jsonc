@@ -40,17 +40,7 @@
         //     "slate": "#8e9aaf"
         // },
         // "lightFill": 0.6,
-        // "scheme": "system",
-        "light": {
-            // "surface": "#f6f6f7",
-            // "card": "#ffffff",
-            // "text": "#1c1c1e",
-            // "secondary": "#86868b",
-            // "charging": "#28a745",
-            // "powerSaver": "#c79100",
-            // "border": "#000000",
-        },
-        "dark": {
+        "glass": {
             // "surface": "#262628",
             // "card": "#2c2c2e",
             // "text": "#f2f2f2",
@@ -270,7 +260,7 @@
             // "maximizedShare": 0.9,
         },
         "workspaces": {
-            // "show": true,
+            // "show": false,
             // "size": 7,
             // "activeWidth": 18,
             // "gap": 6,
@@ -295,7 +285,7 @@
             // ],
         },
         "clock": {
-            // "dateFormat": "ddd d MMM",
+            // "dateFormat": "",
             // "timeFormat": "HH:mm",
             // "timeFormat12h": "h:mm",
             // "spacing": 8,
@@ -304,11 +294,6 @@
             // "dotSize": 6,
         },
         // "overlayOpacity": 0.45,
-        "bluetooth": {
-            // "size": 16,
-            // "icon": "bluetooth.svg",
-            // "show": true,
-        },
         "wifi": {
             // "size": 16,
             // "icons": [
@@ -346,7 +331,7 @@
         },
         "quickSettings": {
             // "show": true,
-            // "icon": "page-info-outline.svg",
+            // "icon": "control-center.svg",
             // "size": 16,
         },
         "aim": {
@@ -491,6 +476,11 @@
         },
     },
     "panel": {
+        "blur": {
+            // "enabled": true,
+            // "opacity": 0.5,
+            // "showAbove": 0.5,
+        },
         // "width": 320,
         // "padding": 10,
         // "nameSize": 16,
@@ -1046,9 +1036,10 @@
             //     "dampingFraction": 0.8
             // },
             // "merge": {
-            //     "response": 0.34,
+            //     "response": 0.24,
             //     "dampingFraction": 1
             // },
+            // "mergeGapAt": 0.75,
             // "birthWidth": 0.35,
             // "birthHeight": 20,
             // "contentFrom": 0.55,

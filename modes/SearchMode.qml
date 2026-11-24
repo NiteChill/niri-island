@@ -793,10 +793,17 @@ IslandMode {
             else
                 pane.springTo(target);
             paneMerge.stop();
-            if (pane.split < 1 && !paneSplit.running)
+            if (pane.split < 1 && !paneSplit.running) {
+                // a fresh opening takes the opening's path; reopened halfway through a closing, it keeps
+                // the closing's path (taking the other at the same split jumped the pill down): the notch
+                // spits it back out. Both paths end at the same place
+                if (pane.split <= 0)
+                    pane.merging = false;
                 paneSplit.start();
+            }
         } else if ((pane.split > 0 || paneSplit.running) && !paneMerge.running) {
             paneSplit.stop();
+            pane.merging = true;
             paneMerge.start();
         }
     }
@@ -970,13 +977,20 @@ IslandMode {
         readonly property real notchBottom: -y
 
         // the body now: born look.birthWidth of its width (never wider than the notch's flat bottom) and
-        // look.birthHeight tall, hidden just above the notch's bottom edge; at split 1, the pane itself
+        // look.birthHeight tall, hidden just above the notch's bottom edge; at split 1, the pane itself.
+        // Opening, it moves out and grows as one. Closing (`merging`, 2026-11-25, the user: "more like one
+        // eating the other while shrinking", not two shapes heading to one point): its top rises into the
+        // notch first (by look.mergeGapAt, so the liquid joins them from the start), and its bottom edge
+        // rises after it, the pill swallowed by the notch, on a quicker spring than the notch's (merge)
+        property bool merging: false
         readonly property real birthWidth: Math.max(0, Math.min(width * look.birthWidth, notchWidth - 2 * notchCorner))
         readonly property real birthY: notchBottom - look.birthHeight
         readonly property real bodyWidth: Math.max(0, birthWidth + (width - birthWidth) * split)
-        readonly property real bodyHeight: Math.max(0, look.birthHeight + (height - look.birthHeight) * split)
+        readonly property real topShown: merging ? Math.max(0, Math.min(1, (split - look.mergeGapAt) / Math.max(0.001, 1 - look.mergeGapAt))) : split
+        readonly property real bodyY: birthY + (0 - birthY) * topShown
+        readonly property real bodyBottom: merging ? notchBottom + (height - notchBottom) * split : bodyY + look.birthHeight + (height - look.birthHeight) * split
+        readonly property real bodyHeight: Math.max(0, bodyBottom - bodyY)
         readonly property real bodyX: (width - bodyWidth) / 2
-        readonly property real bodyY: birthY + (0 - birthY) * split
         readonly property real bodyCorner: Math.min(Config.corner("island", bodyHeight), bodyHeight / 2)
         // the content: fades in over the last part of the split (and out first when merging)
         readonly property real contentShown: Math.max(0, Math.min(1, (split - look.contentFrom) / Math.max(0.001, 1 - look.contentFrom)))

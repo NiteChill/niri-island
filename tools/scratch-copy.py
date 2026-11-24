@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build a safe test copy of the shell (the default way to test, see CLAUDE.md "Testing a change").
 
-  python3 tools/scratch-copy.py <dest> [--tester FILE] [--shelf DIR] [--light]
+  python3 tools/scratch-copy.py <dest> [--tester FILE] [--shelf DIR]
   qs -p <dest>        (run it; stop it with timeout -s TERM, it ignores SIGINT when backgrounded)
 
 The copy can't touch the system or the user:
@@ -13,7 +13,6 @@ The copy can't touch the system or the user:
     and the user's typing toggled their Wi-Fi) and reserves no space (exclusiveZone 0: the user's windows
     would move)
   - its shelf is its own folder (<dest>/shelf, or --shelf DIR), screenshots aren't put on it
-  - --light: the light theme (never the user's gsettings)
 The window's visual children sit in an `Item { id: scene }` so tests can grab it
 (scene.grabToImage: the grab is transparent, composite it over a wallpaper), and a --tester file is
 copied in as Tester.qml and instantiated next to the scene: it can reach `scene`, `bar`, `island`,
@@ -38,7 +37,6 @@ def main():
     dest = os.path.abspath(args[0])
     tester = args[args.index("--tester") + 1] if "--tester" in args else None
     shelf = os.path.abspath(args[args.index("--shelf") + 1]) if "--shelf" in args else os.path.join(dest, "shelf")
-    light = "--light" in args
     if dest == ROOT or ROOT.startswith(dest + os.sep):
         sys.exit("scratch-copy: refusing to write over the shell itself")
 
@@ -73,8 +71,6 @@ def main():
                     e["default"] = shelf
                 elif k == "shelf.keepScreenshots":
                     e["default"] = False
-                elif k == "colors.scheme" and light:
-                    e["default"] = "light"
     open(path, "w").write(json.dumps(schema, indent=2, ensure_ascii=False))
     # the user's own overrides would win over the stubs: the copy runs on the schema's values only
     open(os.path.join(dest, "config", "config.jsonc"), "w").write('{\n    "$schema": "./config.schema.json"\n}\n')

@@ -448,7 +448,10 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   clock (bar.clock.dateFormat "ddd d MMM" + the time). No volume icon (the user: "no sound slider in the
   top bar"): the volume is in quick settings and the notch.
 - Fullscreen (Sys.fullscreen: the active window of the active workspace is the output's logical size,
-  overview closed): the bar slides up and fades (bar.hideInFullscreen); the notch stays.
+  overview closed): the bar slides up and fades (bar.hideInFullscreen); the notch stays. Resting the
+  pointer on the top bar.reveal.edge px (shell.qml's revealEdge, in the input mask only while hidden)
+  brings it back after bar.reveal.showDelay (2026-11-24, "so that the top bar is still accessible"); it
+  stays while the pointer is on it or a dropdown is open, and leaves bar.reveal.hideDelay after.
 - The window reserves bar.height; it is the whole screen tall so the dropdowns and cards hang below
   the bar in the same window (one keyboard focus, z order by declaration: bar < cards < dropdown < notch).
 

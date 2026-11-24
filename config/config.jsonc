@@ -83,6 +83,11 @@
         // "edge": 10,
         // "hideInFullscreen": true,
         // "hideDuration": 260,
+        "reveal": {
+            // "edge": 4,
+            // "showDelay": 150,
+            // "hideDelay": 600,
+        },
         "gradient": {
             // "color": "#000000",
             // "opacity": 0.3,

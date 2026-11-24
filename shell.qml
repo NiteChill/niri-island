@@ -116,6 +116,19 @@ ShellRoot {
             Region {
                 item: dropHold
             }
+            Region {
+                item: revealEdge
+            }
+        }
+        // the screen's top edge while a fullscreen window hides the bar: resting the pointer there brings
+        // the bar back (bar.reveal.edge px tall; 0 = never)
+        Item {
+            id: revealEdge
+            width: bar.fullscreenHide ? topBar.width : 0
+            height: bar.fullscreenHide ? Config.bar.reveal.edge : 0
+            HoverHandler {
+                onHoveredChanged: bar.edgeHovered = hovered
+            }
         }
         Item {
             id: barArea

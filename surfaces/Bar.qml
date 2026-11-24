@@ -17,7 +17,8 @@ import "../widgets"
 //    each opening its dropdown under it (BarItem; anchorFor tells the dropdown where). The clock's is the
 //    calendar with the notification center under it; a dot by the clock = new notifications
 // The notch sits in the middle (shell.qml), over the bar. With bar.hideInFullscreen, a fullscreen window
-// slides it all away (the notch stays).
+// slides it all away (the notch stays); the pointer resting on the screen's top edge brings it back
+// (bar.reveal.*: shell.qml's revealEdge sets edgeHovered), until it leaves the bar and its dropdowns.
 // Switching dropdowns by moving along the bar (the macOS menu bar's way) waits while the pointer heads
 // into the open dropdown (aimTo): going from quick settings down-left to its Wi-Fi switch crosses the
 // battery, and that mustn't switch to the battery's dropdown.
@@ -28,7 +29,53 @@ Item {
     property var window: null
     // the open dropdown's card, in the bar's (the window's) coordinates (set by shell.qml)
     property rect card: Qt.rect(0, 0, 0, 0)
-    readonly property bool hidden: Config.bar.hideInFullscreen && Sys.fullscreen
+    // ---- fullscreen: hidden, back while the pointer is at the top edge ----
+    readonly property bool fullscreenHide: Config.bar.hideInFullscreen && Sys.fullscreen
+    // the pointer is on the top edge strip (set by shell.qml)
+    property bool edgeHovered: false
+    // shown over the fullscreen window: from the edge (after bar.reveal.showDelay), kept while the pointer
+    // is on the bar or a dropdown is open, gone bar.reveal.hideDelay after that ends
+    property bool revealed: false
+    readonly property bool hidden: fullscreenHide && !revealed
+    function _updateReveal() {
+        if (!fullscreenHide) {
+            showTimer.stop();
+            hideTimer.stop();
+            revealed = false;
+            return;
+        }
+        const keep = edgeHovered || (revealed && (barHover.hovered || Activity.dropdown !== ""));
+        if (keep) {
+            hideTimer.stop();
+            if (!revealed && !showTimer.running)
+                showTimer.restart();
+        } else {
+            showTimer.stop();
+            if (revealed && !hideTimer.running)
+                hideTimer.restart();
+        }
+    }
+    onFullscreenHideChanged: _updateReveal()
+    onEdgeHoveredChanged: _updateReveal()
+    Connections {
+        target: Activity
+        function onDropdownChanged() {
+            bar._updateReveal();
+        }
+    }
+    Timer {
+        id: showTimer
+        interval: Config.bar.reveal.showDelay
+        onTriggered: {
+            bar.revealed = true;
+            bar._updateReveal();
+        }
+    }
+    Timer {
+        id: hideTimer
+        interval: Config.bar.reveal.hideDelay
+        onTriggered: bar.revealed = false
+    }
     // where a dropdown hangs: the middle of its bar item, in the bar's coordinates (-1 = not from the bar)
     function anchorFor(name) {
         const items = {
@@ -128,6 +175,8 @@ Item {
         onTriggered: bar._movedRecently = false
     }
     HoverHandler {
+        id: barHover
+        onHoveredChanged: bar._updateReveal()
         onPointChanged: {
             bar._movedRecently = true;
             stillTimer.restart();

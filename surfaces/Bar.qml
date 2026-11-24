@@ -478,6 +478,9 @@ Item {
                     font.features: {
                         "tnum": 1
                     }
+                    // the alerts' battery color (green charging, yellow power saver, red low...) unless
+                    // bar.battery.colored is off (white, like the other icons)
+                    color: Config.bar.battery.colored ? Sys.battery.color : Config.colors.text
                     text: Sys.battery.percentage + "%"
                 }
                 // like the iPhone: charging = a bolt, power saver = a plus, cut into the battery's right end
@@ -499,7 +502,7 @@ Item {
                     contentHeight: barBattery.drawnHeight
                     Battery {
                         id: barBattery
-                        tint: Config.colors.text
+                        tint: Config.bar.battery.colored ? Sys.battery.color : Config.colors.text
                     }
                 }
             }

@@ -443,8 +443,9 @@ Each piece keeps the layout that suits it, but they all follow these rules.
 - Right, in order: tray (Sys.trayItems; click = activate, or the menu for menu-only items; right click =
   the item's own menu via `item.display(window, x, y)`, drawn by the system; tray.monochrome off by
   default: colorizing an icon drawn on a filled square gave a white square), Bluetooth (dim while off),
-  Wi-Fi (bars; wifi-off.svg while off), battery (white always, the bolt / plus cut into its end:
-  bar.battery.badge; the user: "keep system icons white at all time"), quick settings (tune.svg), the
+  Wi-Fi (bars; wifi-off.svg while off), battery (the bolt / plus cut into its end:
+  bar.battery.badge; in the alerts' color, Sys.battery.color, percentage included, since 2026-11-24: "make
+  the battery icon the same as in the alerts"; bar.battery.colored off = white like the rest), quick settings (tune.svg), the
   clock (bar.clock.dateFormat "ddd d MMM" + the time). No volume icon (the user: "no sound slider in the
   top bar"): the volume is in quick settings and the notch.
 - Fullscreen (Sys.fullscreen: the active window of the active workspace is the output's logical size,
@@ -922,7 +923,7 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   damping-ratio = dampingFraction. When either spring changes, update niri too (and run `niri validate`).
   The camera/travel animations stay on niri's defaults (the user tried island-style springs there).
 - Battery color priority: charging (green) > power saver (yellow) > low battery (red) > performance (red) >
-  balanced (white). Computed once in `Sys.battery.color` (the alerts); the bar's battery is always white.
+  balanced (white). Computed once in `Sys.battery.color` (the alerts and the bar's battery, unless bar.battery.colored is off).
 - Each file starts with a short comment saying what it is. Keep it accurate when you change the file.
 
 ### System settings (2026-11-16)

@@ -320,6 +320,7 @@
         "battery": {
             // "show": true,
             // "showPercent": false,
+            // "colored": true,
             // "percentGap": 6,
             // "size": 26,
             // "icon": "battery.svg",

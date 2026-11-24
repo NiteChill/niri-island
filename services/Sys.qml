@@ -29,7 +29,7 @@ Singleton {
     //   charging: bool       plugged in and charging or full,
     //   full: bool           UPower says fully charged (often below 100 % with a charge limit),
     //   profile: string      "powerSaver" | "balanced" | "performance",
-    //   color: color         the one battery color used everywhere (the bar's icon stays white):
+    //   color: color         the one battery color used everywhere (the bar's icon too, unless bar.battery.colored is off):
     //                        charging > power saver > low (bar.battery.dangerLevel, not charging) >
     //                        performance > balanced
     //   low: bool            below bar.battery.dangerLevel and not charging

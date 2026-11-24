@@ -1200,6 +1200,13 @@
               "default": "page-info-outline.svg"
             },
             {
+              "key": "bar.battery.colored",
+              "label": "Battery in color",
+              "description": "Draw the bar's battery (and its percentage) in the same color as the battery alerts: green while charging, yellow in power saver, red when low or in performance mode, white otherwise. Off: always white, like the other icons.",
+              "type": "boolean",
+              "default": true
+            },
+            {
               "key": "bar.quickSettings.size",
               "label": "Quick settings icon size",
               "description": "The quick settings icon's size.",

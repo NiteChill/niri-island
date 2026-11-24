@@ -8,14 +8,14 @@ import "../services"
 // The body's flat top and bottom are snapped to device pixels (scale nudged so its height is whole
 // pixels, then shifted onto the pixel grid): otherwise, at fractional scales (1.25), the half-covered
 // rows above and below it read as thin dark bars.
-// The bar (white) and the charging alert (which sets `level` to animate the fill).
+// The bar (the same color, or white: bar.battery.colored) and the charging alert (which sets `level` to animate the fill).
 Item {
     id: battery
 
     // config
     readonly property var icon: Config.bar.battery
 
-    // the battery color by default; the bar passes white
+    // the battery color by default; the bar passes white when bar.battery.colored is off
     property color tint: Sys.battery.color
     readonly property color iconColor: tint
     // 0 - 1; defaults to the real level

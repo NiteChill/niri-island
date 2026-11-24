@@ -2,7 +2,7 @@ import QtQuick
 
 import "../services"
 
-// Speaker icon, like the Wi-Fi icon: the full speaker (every wave) dimmed (idle.overlayOpacity) with the waves
+// Speaker icon, like the Wi-Fi icon: the full speaker (every wave) dimmed (bar.overlayOpacity) with the waves
 // for the real level bright on top (volume.icons share one drawing, so they line up); muted = the
 // crossed-out speaker alone. Used by the volume pop-up and quick settings. Size it from outside.
 Item {

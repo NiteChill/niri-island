@@ -124,7 +124,9 @@ assets/icons/          SVG icons, referenced by file name from the config: Mater
                        A new icon: the same URL, nothing else. One exception, the user's call (2026-11-24): the
                        bar's quick settings icon is the outlined page_info (page-info-outline.svg, the URL's
                        `default` instead of `fill1`). Kept as they were: battery.svg, gauge-balanced.svg,
-                       skip-triangle.svg (adjusted / derived), the distro logos. Phosphor was tried the same day
+                       skip-triangle.svg (adjusted / derived),
+                       volume-level0 / level1.svg (volume-up's speaker at its place, the right left empty: Material
+                       centres each, so the bright level slid off the dim full speaker under it, 2026-11-24), the distro logos. Phosphor was tried the same day
                        ("looks off here"); SF Symbols can't be shipped (Apple's licence).
                        Drawn by widgets/Icon: <path> elements only, a viewBox, no transforms, no strokes. A path
                        starting with a relative "m x y" + more pairs works (Config._svg adds the "l")

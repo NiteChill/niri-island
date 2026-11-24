@@ -91,6 +91,8 @@ services/              singletons (registered in services/qmldir)
                        Quickshell.statePath("notifications.json"), historyLimit), the cards on screen (ListModel
                        `banners`, each with its own paused-on-hover time), NEW / OLD (lastSeen), the screenshot
                        pile, open / action / dismiss / hide / clearAll; `revision` bumps on any change
+  Glass.qml            the frosted surfaces (every widgets/Frost) and `rects`, what niri blurs (shell.qml's
+                       Regions): collected once per event loop turn, replaced only when a whole pixel changed
 island/
   Island.qml           the springing surface (notch and dropdown card): a path shape (continuous corners,
                        attached = notch flares), the active mode's size, the palette its content inherits
@@ -115,7 +117,8 @@ widgets/               reusable pieces
   Badge  TitleStack  Battery  Wifi (the bar's icons, always white there)  CutoutBadge (a glyph cut
   into a thing's corner: the battery's bolt)  CornerShape  Speaker  LevelSlider  LevelRow  QuickToggle
   MenuBadge  MediaBars  MediaCover  PictureCarousel  PanelList (the Wi-Fi / Bluetooth list chrome)
-  RollingName (the carousels' title)  ScrollFade (a list's edge fades: a gradient in palette.window, or an alpha mask on a see-through card)
+  RollingName (the carousels' title)  Frost (marks a frosted surface: tracks its rectangle in the window for
+  niri's blur, registers in Glass)  ScrollFade (a list's edge fades: a gradient in palette.window, or an alpha mask on a see-through card)
   RowHighlight (a list's lit row: springs while shown, fades out in place, jumps when it shows again)
   MovedHover (a HoverHandler reporting only real pointer moves: a still pointer leaves the keys in charge)
   DropZone (the drop zone's drawing: live in DropMode, muted as the empty shelf)  NotchTabs  Switch
@@ -949,7 +952,10 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   one Region per shown rectangle (an Instantiator filling frostRegion.regions). Quickshell's own `item`
   regions re-read only the item's own geometry, not its parents'. Fills are Config.frosted(color)
   (panel.blur.opacity); a frosted card has no shadow (its dark middle showed through). The notch stays solid
-  black (it pretends to be the screen's notch). The blur can't fade,
+  black (it pretends to be the screen's notch). Cost, measured 2026-11-25 (a scratch copy, a pop-up sliding
+  in every 1.5 s, 12 s, three runs each, noisy): blur off 108 / 116 / 133 CPU ticks, on 121 / 143 / 191
+  (median +23 %); none at rest. Rebuilding the regions on every sub-pixel step was worse (149 vs 112 in one
+  pair): Glass coalesces (15 s: 1107 Frost changes -> 706 refreshes -> 321 updates sent). The blur can't fade,
   so it's there only while presence > panel.blur.showAbove. The user's niri config has a `blur` block and
   an overlay layer-rule with background-effect (xray false). "Too blurry, make it more see through"
   (2026-11-25): niri's blur went from 3 passes / offset 3 to 2 / 2 (~/.config/niri/config.kdl, `niri

@@ -46,6 +46,9 @@ Item {
     // (its own `visible` is already its parents' too; reading each parent's looped, 2026-11-25)
     readonly property bool shown: Config.panel.blur.enabled && active && visible && _here.opacity > Config.panel.blur.showAbove
 
+    onRectChanged: Glass.changed()
+    onShownChanged: Glass.changed()
+    onRadiusChanged: Glass.changed()
     Component.onCompleted: Glass.add(frost)
     Component.onDestruction: Glass.remove(frost)
 }

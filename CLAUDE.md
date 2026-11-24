@@ -140,7 +140,9 @@ assets/icons/          SVG icons, referenced by file name from the config: Mater
                        the iPhone's combined status glyph), bluetooth.svg (a rune as round-capped capsules of one
                        winding) and battery.svg (iOS 27's: body with Apple's continuous corners, r 21.3 on 65.8,
                        a flat-backed nub), each fitted to the user's screenshots by least squares on pixel
-                       coverage (battery: <1 % mean difference). They're traced from Apple's glyphs: keep them
+                       coverage (battery: <1 % mean difference). wifi-off.svg is Apple's wifi.slash on that fan (2026-11-25, the
+                       user: "just make it the same as apple's"): tools/make-wifi-off.py cuts the pieces along
+                       the slash's gap (half-plane clips) and adds the slash. They're traced from Apple's glyphs: keep them
                        out of the public repo unless the user decides otherwise (the licence note above).
                        Drawn by widgets/Icon: <path> elements only, a viewBox, no transforms, no strokes. A path
                        starting with a relative "m x y" + more pairs works (Config._svg adds the "l")
@@ -230,6 +232,11 @@ Notifications are not notch activities: they go through Inbox (cards + center).
   newest `/run/user/1000/quickshell/by-id/*/log.log` with "Reloading" in it; `touch shell.qml` triggers a
   clean reload, judge only warnings after it. Editing only an SVG doesn't reload: add then remove a newline
   at the end of shell.qml.
+- "Config: schema.json is not valid JSON, keeping the previous values" right after both config files changed at
+  once (a `git switch`, a merge): Config rebuilds when either FileView finishes reloading, and the first one
+  read the other mid-reload. The last reload sees both whole files and wins, so it heals itself (checked
+  2026-11-25: touching each alone reloads silently). Merge without rewriting the working files: commit on the
+  branch, `git branch -f main <branch>`, then `git switch main`.
 - Quick load check: `timeout -s INT 4 qs -p . 2>&1 | grep -E "WARN|ERROR"` (SIGINT so the output flushes;
   "Could not register notification server" is expected for a second instance).
 - **Scratch copy** (the default way to test): `python3 tools/scratch-copy.py <scratchpad>/copy --tester

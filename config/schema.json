@@ -248,7 +248,7 @@
             {
               "key": "corners.island",
               "label": "Notch (pill style)",
-              "description": "The pill-style notch's corners (island.style \"pill\"); at rest it's a pill anyway (at most half its height).",
+              "description": "The pill-style notch's corners (island.style \"pill\"); at rest it's a pill anyway (at most half its height). Also the search's second pill.",
               "type": "integer",
               "min": 0,
               "max": 60,
@@ -266,6 +266,29 @@
               "step": 1,
               "unit": "px",
               "default": 32
+            },
+            {
+              "key": "corners.notch",
+              "label": "Notch, small",
+              "description": "The notch's bottom corners at its small sizes (resting, the music playing, one-line pop-ups), like a MacBook's notch: small, not a round pill. What sits against them (badges, the music's cover) follows them.",
+              "type": "integer",
+              "min": 0,
+              "max": 30,
+              "step": 1,
+              "unit": "px",
+              "default": 10
+            },
+            {
+              "key": "corners.notchOpenAt",
+              "label": "Fully open at",
+              "description": "How tall the notch must be for its corners to have grown all the way from the small ones to the open ones. In between, they grow with it.",
+              "type": "integer",
+              "min": 20,
+              "max": 200,
+              "step": 1,
+              "unit": "px",
+              "default": 60,
+              "advanced": true
             },
             {
               "key": "corners.flare",

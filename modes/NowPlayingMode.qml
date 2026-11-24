@@ -51,6 +51,8 @@ IslandMode {
         width: mode.coverSize
         height: mode.coverSize
         iconSize: mode.coverSize * mode.layout.noteScale
+        // concentric with the notch's corner around it
+        radius: Config.inner(Config.corner(Config.attached ? "attached" : "island", mode.layout.height), mode.layout.coverInset, mode.coverSize)
         scale: mode.coverPop
     }
     MediaBars {

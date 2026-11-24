@@ -4,13 +4,15 @@ import QtQuick.Shapes
 
 import "../services"
 
-// The playing track's cover (Sys.media.artUrl) as a rounded tile (the corner style's `tile` corner, smoothed like the island's); without
+// The playing track's cover (Sys.media.artUrl) as a rounded tile (`radius`: the `tile` corner by default, smoothed like the island's); without
 // one, a soft tile with a music note. Size it from outside; `iconSize` = the note's size.
 // Used by the media panel and the "now playing" alert (NowPlayingMode).
 Item {
     id: art
 
     property real iconSize: width / 2
+    // its corner: the `tile` corner, or concentric with the notch around it (NowPlayingMode)
+    property real radius: Config.corner("tile", height)
 
     Image {
         id: cover
@@ -45,7 +47,7 @@ Item {
             strokeWidth: -1
             fillColor: palette.windowText
             PathSvg {
-                path: Config.roundedRectPath(art.width, art.height, Config.corner("tile", art.height), Config.island.cornerSmoothing)
+                path: Config.roundedRectPath(art.width, art.height, Math.min(art.radius, art.height / 2), Config.island.cornerSmoothing)
             }
         }
     }
@@ -53,7 +55,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         visible: !cover.ready
-        radius: Config.corner("tile", height)
+        radius: Math.min(art.radius, height / 2)
         color: palette.windowText
         opacity: Config.activity.badgeOpacity
     }

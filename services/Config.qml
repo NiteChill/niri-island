@@ -243,8 +243,16 @@ Singleton {
     }
 
     // corner for `role` on something `size` tall: the style's value, never more than half the size
+    // The notch's bottom corners (`attached`) follow its height like a MacBook's notch: small and square-ish
+    // (corners.notch) up to a one-line pop-up's height, growing to corners.attached by corners.notchOpenAt,
+    // so they round out smoothly as it springs open.
     function corner(role, size) {
-        return Math.max(0, Math.min(corners[role], size / 2));
+        let r = corners[role];
+        if (role === "attached") {
+            const t = Math.max(0, Math.min(1, (size - restHeight) / Math.max(1, corners.notchOpenAt - restHeight)));
+            r = corners.notch + (corners.attached - corners.notch) * t;
+        }
+        return Math.max(0, Math.min(r, size / 2));
     }
     // corner for something `size` tall sitting `inset` inside a shape whose corner is `outer`: concentric
     // with it, never below the style's `small` corner, never more than half the size

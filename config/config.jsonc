@@ -65,6 +65,8 @@
     "corners": {
         // "island": 32,
         // "attached": 32,
+        // "notch": 10,
+        // "notchOpenAt": 60,
         // "flare": 10,
         // "pill": 100,
         // "row": 8,

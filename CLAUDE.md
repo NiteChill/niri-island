@@ -841,6 +841,10 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   (`island.cornerSmoothing`); smoothing gives way when space is short, so the resting pill keeps half circles.
   Smoothing 0 (and not attached) = a plain `Rectangle` instead (`Island.plain`): measured 14.8 % vs 18.6 % of
   a core while the island springs nonstop, same at rest. For older laptops.
+- The notch's corners follow its size like a MacBook's notch (2026-11-24, the user: "mimic the official
+  notch from Apple"): `attached` is corners.notch (10, small, not a pill) up to a one-line pop-up's
+  height, growing to corners.attached by corners.notchOpenAt (60) (Config.corner), so they round out as
+  it springs open. Badges and the music's cover are concentric with it (rounded squares, not circles).
 - Corners: one size per role, `corners.*` (2026-11-23: the four corner styles island.shape / shapes were
   removed, "this makes the code clearer"). The open notch: 32 (18 was tried: "nahhh more border
   radius"); dropdowns and cards: 18. Before that, 4 hand-tuned styles (square / soft / round / full)

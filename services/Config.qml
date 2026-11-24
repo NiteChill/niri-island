@@ -272,7 +272,7 @@ Singleton {
         const c = p34 * Math.cos(beta * rad);
         const d = c * Math.tan(beta * rad);
         const b = (p - arc - c - d) / 3;
-        return { r: r, p: p, a: 2 * b, b: b, c: c, d: d, arc: arc };
+        return { r: r, p: p, a: 2 * b, b: b, c: c, d: d, arc: arc, sweep: arcMeasure * rad };
     }
     // SVG (relative commands) for a corner, drawn clockwise. k = quarter turns: 0 top-right, 1 bottom-right,
     // 2 bottom-left, 3 top-left.
@@ -296,6 +296,28 @@ Singleton {
         const q = cornerParams(r, s, Math.min(w, h) / 2);
         const n = v => v.toFixed(2);
         return "M " + n(q.p) + " 0 H " + n(w - q.p) + cornerSvg(q, 0) + " V " + n(h - q.p) + cornerSvg(q, 1) + " H " + n(q.p) + cornerSvg(q, 2) + " V " + n(q.p) + cornerSvg(q, 3) + " Z";
+    }
+    // the length of roundedRectPath's outline (the drop zone fits its dashes to it, so the pattern closes
+    // without a seam): the straight edges, the arcs, and each corner's two curves (measured in steps)
+    function roundedRectLength(w, h, r, s) {
+        if (w <= 0 || h <= 0)
+            return 0;
+        const q = cornerParams(r, s, Math.min(w, h) / 2);
+        let curve = 0;
+        if (q.r > 0) {
+            const steps = 32;
+            const x3 = q.a + q.b + q.c, y3 = q.d;
+            let px = 0, py = 0;
+            for (let i = 1; i <= steps; i++) {
+                const t = i / steps, u = 1 - t;
+                const x = 3 * u * u * t * q.a + 3 * u * t * t * (q.a + q.b) + t * t * t * x3;
+                const y = t * t * t * y3;
+                curve += Math.hypot(x - px, y - py);
+                px = x;
+                py = y;
+            }
+        }
+        return 2 * (w - 2 * q.p) + 2 * (h - 2 * q.p) + 4 * (2 * curve + q.r * q.sweep);
     }
     // the screen corners (ScreenCorners): radius screenCorners.radius, smoothed by screenCorners.smoothing;
     // .p = how far each one runs along the screen's edges (its window's size)

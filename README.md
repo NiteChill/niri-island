@@ -26,9 +26,9 @@ It is a community project, not part of niri.
 
   Everything works from the keyboard too (arrows, Tab, Enter, Space, Escape). A click outside, or on the
   bar's empty space, closes it.
-- **Search** (a shortcut): the notch grows into a launcher for apps, files, calculations, web searches
-  and the desktop's settings (with [niri-settings](https://github.com/NiteChill/niri-settings)), with
-  pinned favourites.
+- **Search** (a shortcut): the notch grows into a search field and a second pill drops in under it,
+  with your favourites and every app; type, and it finds apps, files, calculations, web searches and
+  the desktop's settings (with [niri-settings](https://github.com/NiteChill/niri-settings)).
 - **Wallpaper** (from the search or the logo's menu): a carousel of your wallpapers.
 
 ![Notifications at the top right, the calendar with the notification history, search in the notch, and the music player](docs/panels.png)

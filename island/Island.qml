@@ -49,6 +49,9 @@ Item {
     // the content only crossfades while the shape morphs (the dropdowns): no scaling with the shape, no pop,
     // no blur. False = the notch's full transition (see IslandMode)
     property bool plainFade: false
+    // where a mode can hang a surface of its own under the island, out of its clip (the launcher's pill;
+    // set by shell.qml: an item at the island's bottom centre, `area` = the part to take the pointer)
+    property Item below: null
     // forwarded from the modes, so the owner handles them once for all modes
     signal requestState(string name)
     signal holdKeyboard()

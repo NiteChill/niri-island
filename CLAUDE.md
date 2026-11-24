@@ -94,7 +94,9 @@ services/              singletons (registered in services/qmldir)
 island/
   Island.qml           the springing surface (notch and dropdown card): a path shape (continuous corners,
                        attached = notch flares), the active mode's size, the palette its content inherits
-                       (fill / text / secondary), keepSize (the card fading out), jumping (no spring)
+                       (fill / text / secondary), keepSize (the card fading out), jumping (no spring),
+                       below (shell.qml's underNotch: where a mode hangs a surface of its own under the
+                       notch, out of its clip, + the `area` that takes the pointer: the launcher's pill)
   IslandMode.qml       base type for modes: active state, requestState, keyboard focus, Escape, transition
 modes/                 one file per mode (name = Activity kind / dropdown name)
   AllModes.qml         the notch's modes: RestMode (the small empty notch: hover grows it, click = center, a dot
@@ -105,6 +107,7 @@ modes/                 one file per mode (name = Activity kind / dropdown name)
                        SearchMode, WallpaperMode, ScreenshotsMode
 widgets/               reusable pieces
   StyledText  Icon (every assets/icons SVG: `name` + `color`, drawn as a vector Shape)
+  LauncherTile (one tile of the launcher's grid: a favorite or an app, icon over name)
   BarItem (a bar item: hover / open highlight, opens its dropdown, hover-switches while one is open)
   PanelHeader (a dropdown's title + something at the right)  Switch (the header's on / off)
   NotificationCard (one card: time, title, message, picture / app icon; urgent = red; screenshot = a pile;
@@ -548,12 +551,47 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   and the shelf's share panel.nameSize (16).
 - Search lives in the notch (2026-11-23, decided with the user over a vertically centred floating card:
   the notch is the place you talk to the system, and it was a notch mode once already): a notch panel
-  (Activity.notchPanels), dark like the notch, growing downward with its results; the notch Island's
-  extraModes = the dropdowns', so the launcher still lists them. The tabs pill hides while it's open.
-- Search: Raycast-style launcher: magnifier, hairline, results grouped under grey section titles (groups ordered
+  (Activity.notchPanels), dark like the notch; the notch Island's extraModes = the dropdowns', so the
+  launcher still lists them. The tabs pill hides while it's open.
+- Two pills, like Spotlight (2026-11-24, the user's idea, "a separate pill for the launcher to have the
+  result ... all apps in the second pill under the search"): the notch grows into the search field only
+  (search.fieldPadding: 60 px tall), and a second black pill (search.gap under it, island corners)
+  holds the rest. It's SearchMode's own `pane`, reparented to Island.below (shell.qml's underNotch, at
+  the notch's bottom centre, riding it) so the notch's clip doesn't cut it; it sets underNotch.area for
+  the window's input mask (the gap above it included). It comes once the notch is search.panel.startAt
+  (0.6) of the way to its size (paneReady, a binding on the notch's size: IslandMode.progress reads 1 for
+  an instant at activation, which started it at once) and springs its height like the notch. It first
+  waited for the field to appear + 40 ms (~380 ms, then a 0.5 s spring): "takes a long time and isn't
+  practical"; ~120 ms with a 0.38 s spring was then "a bit slower ... 70% of the way" (~220 ms, 0.42 s,
+  in place at ~495 ms); then "make it arrive in .4" (2026-11-24): starts at ~160 ms, 0.36 s spring, in
+  place at ~415 ms (measured over 6 openings). It isn't faded (2026-11-24, "it just fades in and feels a bit weird"; the
+  user: "mimic as close as possible what Apple's doing"): it splits off the notch like Liquid Glass
+  shapes. pane.split (0 -> 1, search.panel.split spring, a slight bounce) moves the drawn body from
+  birthWidth x birthHeight tucked behind the notch's bottom edge (underNotch is declared before the
+  Island: behind it) to its place; pane.goo draws the two shapes' smooth union (signed distances +
+  polynomial smooth-min of reach search.panel.goo, solved row by row by bisection, only while they're
+  closer than goo / 2: ~0-1 ms a frame), so the corner where it leaves the notch fills in and a neck
+  stretches and snaps. The content fades in after contentFrom. Closing: merge spring (no bounce), the
+  content first, then the body is drawn back behind the notch. Measured: the split takes ~350 ms (before the quicker spring). No shader:
+  qsb isn't installed. "The animation varies between openings" (2026-11-24): paneReady was a flag that
+  stayed true from the last opening, and the opening's own reset (refit -> shownHeight -> syncPane)
+  started the pill at ~30 ms with the notch 130 px wide, every opening but the first. Now a binding; measured over 6 openings (from rest, 250 / 700 ms after a close, over a volume pop-up):
+  the pill starts at ~380 ms each time, the notch at 98 % of its width. Reopened while the last pill is
+  still settling out of sight, it takes its new height at once (jumps while !pane.visible).
+  Nothing typed = the grid: the favorites (the old pins) then "All apps" (search.apps.*: every app by
+  name, a GridView whose header holds the favorites and the title; grid coordinates start at
+  mode.gridTop = the header's y, negative). One selection across both (tileSelected: favorites, then
+  apps); typing crossfades to the results (search.panel.swap), clearing crossfades back to the same
+  tile. Only favorites are reordered (all apps stay alphabetical: new installs need a place). Keys all
+  go through SearchMode.handleKey(event) (a test drives it with plain { key, modifiers } objects): Up /
+  Down the tile above / below (nearest centre: favorites' rows are centred), Left / Right / Tab in
+  reading order, Page Up / Down a screenful, Home / End, Enter, Ctrl+P (selection stays on the same
+  app as the favorites change), Ctrl+Left / Right; the focus never leaves the field. Tested in a
+  scratch copy with key objects and 30 ms frame grabs.
+- Search: Raycast-style launcher: magnifier, results grouped under grey section titles (groups ordered
   by best match), icons on soft rounded tiles, kind at the right, "Open ↵" keycap on the selection; scrolls.
-  Pins (2026-11-15): with nothing typed it shows the pinned panels / apps / commands as tiles (icon + name,
-  search.pins.columns per row, each row centred (a short last row sits in the middle, 2026-11-19; Up / Down go to the tile visually above / below, SearchMode.pinMoveRow, and hovering the empty space beside a short row selects nothing, tileAt); no title above them: the user asked for just the tiles), with the lists'
+  Pins (2026-11-15; "Favorites" in the settings since 2026-11-24): with nothing typed it shows the pinned panels / apps / commands as tiles (icon + name,
+  search.pins.columns per row, each row centred (a short last row sits in the middle, 2026-11-19; Up / Down go to the tile visually above / below, SearchMode.gridMoveRow, and hovering the empty space beside a short row selects nothing, tileAt); no title above them: the user asked for just the tiles), with the lists'
   sliding highlight; arrows move, Enter opens, Ctrl+Left / Right or dragging a tile reorders (tiles are a
   ListModel moved in place, so each slides to its new slot with the highlight's spring; the dragged one
   follows the pointer), Ctrl+P (search.pins.key) or a right-click pins / unpins a result or tile; pinned

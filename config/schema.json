@@ -259,7 +259,7 @@
             {
               "key": "corners.attached",
               "label": "Notch",
-              "description": "The notch's bottom corners when it opens (at rest it's a pill anyway).",
+              "description": "The notch's bottom corners once it's open (two-line pop-ups, the player, the panels). At its small sizes it has the smaller corners below, growing to these as it opens.",
               "type": "integer",
               "min": 0,
               "max": 60,
@@ -1198,6 +1198,13 @@
               "default": false
             },
             {
+              "key": "bar.battery.colored",
+              "label": "Battery in color",
+              "description": "Draw the bar's battery (and its percentage) in the same color as the battery alerts: green while charging, yellow in power saver, red when low or in performance mode, white otherwise. Off: always white, like the other icons.",
+              "type": "boolean",
+              "default": true
+            },
+            {
               "key": "bar.battery.percentGap",
               "label": "Percentage gap",
               "description": "Space between the percentage and the battery.",
@@ -1221,13 +1228,6 @@
               "description": "The quick settings icon.",
               "type": "icon",
               "default": "page-info-outline.svg"
-            },
-            {
-              "key": "bar.battery.colored",
-              "label": "Battery in color",
-              "description": "Draw the bar's battery (and its percentage) in the same color as the battery alerts: green while charging, yellow in power saver, red when low or in performance mode, white otherwise. Off: always white, like the other icons.",
-              "type": "boolean",
-              "default": true
             },
             {
               "key": "bar.quickSettings.size",
@@ -6166,7 +6166,7 @@
       "id": "search",
       "title": "Search",
       "icon": "search",
-      "description": "Spotlight-style search for island panels, actions, apps and calculations, opened with `qs ipc call island toggle search`.",
+      "description": "Spotlight-style search, opened with `qs ipc call island toggle search`: the notch becomes the search field, and a second pill under it shows your favorites and every app, or the results (island panels, commands, apps, files, settings, calculations, the web) as you type.",
       "groups": [
         {
           "id": "layout",
@@ -6176,7 +6176,7 @@
             {
               "key": "search.width",
               "label": "Width",
-              "description": "Width of the search panel.",
+              "description": "Width of the search field in the notch and of the pill under it.",
               "type": "integer",
               "min": 300,
               "max": 900,
@@ -6187,7 +6187,7 @@
             {
               "key": "search.padding",
               "label": "Padding",
-              "description": "Space between the panel edge and its content.",
+              "description": "Space between the edges and the content: left and right of the search field, and all round inside the pill under it.",
               "type": "integer",
               "min": 0,
               "max": 40,
@@ -6196,9 +6196,20 @@
               "default": 18
             },
             {
+              "key": "search.fieldPadding",
+              "label": "Field padding",
+              "description": "Space above and below the search field inside the notch: the notch's height while searching is the field's plus twice this.",
+              "type": "integer",
+              "min": 0,
+              "max": 40,
+              "step": 1,
+              "unit": "px",
+              "default": 14
+            },
+            {
               "key": "search.gap",
-              "label": "Field to results gap",
-              "description": "Space between the search field and the results.",
+              "label": "Notch to pill gap",
+              "description": "Space between the notch (the search field) and the pill under it (your apps or the results).",
               "type": "integer",
               "min": 0,
               "max": 30,
@@ -6263,27 +6274,6 @@
               "step": 1,
               "unit": "px",
               "default": 10
-            },
-            {
-              "key": "search.dividerWidth",
-              "label": "Divider thickness",
-              "description": "Thickness of the thin line between the search field and the results.",
-              "type": "integer",
-              "min": 0,
-              "max": 4,
-              "step": 1,
-              "unit": "px",
-              "default": 1
-            },
-            {
-              "key": "search.dividerOpacity",
-              "label": "Divider visibility",
-              "description": "How visible the line between the search field and the results is.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.01,
-              "default": 0.12
             }
           ]
         },
@@ -6515,13 +6505,13 @@
         },
         {
           "id": "pins",
-          "title": "Pinned",
-          "description": "Pin panels, apps and commands (Ctrl+P or a right-click on a result): with nothing typed, the launcher shows them as tiles. Arrows move, Enter opens, Ctrl+Left / Right or dragging reorders, Ctrl+P or a right-click unpins.",
+          "title": "Favorites",
+          "description": "Your favorites: panels, apps and commands at the top of the grid when nothing is typed (Ctrl+P or a right-click on a result or an app adds or removes one). Arrows move, Enter opens, Ctrl+Left / Right or dragging reorders them.",
           "settings": [
             {
               "key": "search.pins.columns",
               "label": "Tiles per row",
-              "description": "How many pinned tiles fit in a row of the launcher (shown when nothing is typed).",
+              "description": "How many tiles fit in a row of the grid under the field (your favorites and all apps, shown when nothing is typed).",
               "type": "integer",
               "min": 3,
               "max": 10,
@@ -6654,6 +6644,172 @@
           ]
         },
         {
+          "id": "apps",
+          "title": "All apps",
+          "description": "Every installed app, by name, in the grid under your favorites while nothing is typed: browse with the arrows (Up / Down: the tile above / below, Page Up / Down: a screenful, Home / End: the first / last), Enter or a click opens, a right-click or Ctrl+P makes it a favorite.",
+          "settings": [
+            {
+              "key": "search.apps.show",
+              "label": "Show all apps",
+              "description": "List every app under your favorites when nothing is typed. Off: only the favorites.",
+              "type": "boolean",
+              "default": true
+            },
+            {
+              "key": "search.apps.title",
+              "label": "Title",
+              "description": "The small grey title between your favorites and the apps (only shown when you have favorites).",
+              "type": "string",
+              "default": "All apps"
+            },
+            {
+              "key": "search.apps.titleHeight",
+              "label": "Title height",
+              "description": "Height of the line holding that title.",
+              "type": "integer",
+              "min": 10,
+              "max": 60,
+              "step": 1,
+              "unit": "px",
+              "default": 30,
+              "advanced": true
+            },
+            {
+              "key": "search.apps.visibleRows",
+              "label": "Visible rows before scrolling",
+              "description": "The grid grows up to this many rows of tiles (favorites included), then scrolls.",
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "step": 1,
+              "default": 4
+            }
+          ]
+        },
+        {
+          "id": "panel",
+          "title": "The pill under the field",
+          "description": "How the pill holding your apps and the results comes and goes under the notch.",
+          "settings": [
+            {
+              "key": "search.panel.startAt",
+              "label": "Comes out at",
+              "description": "How far the notch has opened (its size, as a share of the search's) when the pill under it starts to come out. Lower = sooner, the two growing together; 1 = only once the notch is fully open.",
+              "type": "number",
+              "min": 0,
+              "max": 1,
+              "step": 0.05,
+              "default": 0.6,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.split",
+              "label": "Split spring",
+              "description": "How the pill splits off the notch and springs into place when the search opens. Lower damping bounces more.",
+              "type": "spring",
+              "default": {
+                "response": 0.36,
+                "dampingFraction": 0.8
+              },
+              "advanced": true
+            },
+            {
+              "key": "search.panel.merge",
+              "label": "Merge spring",
+              "description": "How the pill is drawn back into the notch when the search closes (no bounce by default, so closing feels quick).",
+              "type": "spring",
+              "default": {
+                "response": 0.34,
+                "dampingFraction": 1
+              },
+              "advanced": true
+            },
+            {
+              "key": "search.panel.birthWidth",
+              "label": "Starting width",
+              "description": "How wide the pill is as it starts to come out from under the notch, as a share of its full width (never wider than the notch's flat bottom).",
+              "type": "number",
+              "min": 0.05,
+              "max": 1,
+              "step": 0.05,
+              "unit": "×",
+              "default": 0.35,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.birthHeight",
+              "label": "Starting height",
+              "description": "How tall the pill is as it starts to come out from under the notch.",
+              "type": "number",
+              "min": 2,
+              "max": 60,
+              "step": 1,
+              "unit": "px",
+              "default": 20,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.contentFrom",
+              "label": "Content appears at",
+              "description": "How far along its split the pill is before the apps or results inside it fade in (0 = at once, 1 = once it's in place). Closing, they fade out first.",
+              "type": "number",
+              "min": 0,
+              "max": 0.95,
+              "step": 0.05,
+              "default": 0.55,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.goo",
+              "label": "Liquid reach",
+              "description": "How liquid the split looks: the notch and the pill stay joined by a stretching neck until they're half this far apart, and the corner where the pill leaves the notch is filled in. 0 = no liquid, two separate shapes. Keep it under twice the gap, or the two never come apart.",
+              "type": "number",
+              "min": 0,
+              "max": 40,
+              "step": 1,
+              "unit": "px",
+              "default": 14,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.gooInset",
+              "label": "Liquid inset",
+              "description": "How far inside the notch's and the pill's outlines the liquid starts, so its edge never peeks out beside theirs.",
+              "type": "number",
+              "min": 0,
+              "max": 4,
+              "step": 0.25,
+              "unit": "px",
+              "default": 1,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.gooStep",
+              "label": "Liquid detail",
+              "description": "Spacing of the points tracing the liquid's edge. Smaller is smoother and costs a little more while it moves.",
+              "type": "number",
+              "min": 0.25,
+              "max": 4,
+              "step": 0.25,
+              "unit": "px",
+              "default": 1,
+              "advanced": true
+            },
+            {
+              "key": "search.panel.swap",
+              "label": "Apps / results crossfade",
+              "description": "How long the apps and the results take to crossfade as you start typing or clear the field.",
+              "type": "integer",
+              "min": 0,
+              "max": 1000,
+              "step": 10,
+              "unit": "ms",
+              "default": 160,
+              "advanced": true
+            }
+          ]
+        },
+        {
           "id": "actions",
           "title": "Actions",
           "description": "Commands you can run from the search, like opening the trash or powering off.",
@@ -6716,7 +6872,7 @@
             {
               "key": "search.shrinkDebounce",
               "label": "Shrink delay while typing",
-              "description": "How long typing must pause before the panel shrinks to fewer results. Growing is instant.",
+              "description": "How long typing must pause before the pill under the field shrinks to fewer results. Growing is instant.",
               "type": "integer",
               "min": 0,
               "max": 1000,

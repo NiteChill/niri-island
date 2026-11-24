@@ -991,6 +991,7 @@
     "search": {
         // "width": 540,
         // "padding": 18,
+        // "fieldPadding": 14,
         // "gap": 8,
         // "inputHeight": 32,
         // "inputSize": 18,
@@ -998,8 +999,6 @@
         // "searchIcon": "search.svg",
         // "searchIconSize": 20,
         // "searchIconGap": 10,
-        // "dividerWidth": 1,
-        // "dividerOpacity": 0.12,
         // "maxResults": 50,
         // "visibleRows": 6,
         // "scrollFade": 16,
@@ -1033,6 +1032,30 @@
             // "key": "P",
             // "markIcon": "pin.svg",
             // "markSize": 12,
+        },
+        "apps": {
+            // "show": true,
+            // "title": "All apps",
+            // "titleHeight": 30,
+            // "visibleRows": 4,
+        },
+        "panel": {
+            // "startAt": 0.6,
+            // "split": {
+            //     "response": 0.36,
+            //     "dampingFraction": 0.8
+            // },
+            // "merge": {
+            //     "response": 0.34,
+            //     "dampingFraction": 1
+            // },
+            // "birthWidth": 0.35,
+            // "birthHeight": 20,
+            // "contentFrom": 0.55,
+            // "goo": 14,
+            // "gooInset": 1,
+            // "gooStep": 1,
+            // "swap": 160,
         },
         // "actions": [
         //     {

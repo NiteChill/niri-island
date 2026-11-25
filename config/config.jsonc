@@ -354,11 +354,11 @@
         "cornerSmoothing": 0.6,
         // "cornerMorph": 300,
         // "minWidth": 100,
-        // "style": "notch",
+        // "style": "pill",
         // "gap": 4,
         "rest": {
-            // "width": 120,
-            // "height": 28,
+            // "width": 90,
+            // "height": 32,
         },
         // "activityHeight": 38,
         // "shrinkDelay": 0,
@@ -478,7 +478,7 @@
     "panel": {
         "blur": {
             // "enabled": true,
-            // "opacity": 0.5,
+            // "opacity": 0.62,
             // "showAbove": 0.5,
         },
         // "width": 320,
@@ -982,7 +982,7 @@
         // "width": 540,
         // "padding": 18,
         // "fieldPadding": 14,
-        // "gap": 8,
+        // "gap": 16,
         // "inputHeight": 32,
         // "inputSize": 18,
         // "placeholder": "Apps, files, calculations, the web…",
@@ -1030,22 +1030,6 @@
             // "visibleRows": 4,
         },
         "panel": {
-            // "startAt": 0.6,
-            // "split": {
-            //     "response": 0.36,
-            //     "dampingFraction": 0.8
-            // },
-            // "merge": {
-            //     "response": 0.24,
-            //     "dampingFraction": 1
-            // },
-            // "mergeGapAt": 0.75,
-            // "birthWidth": 0.35,
-            // "birthHeight": 20,
-            // "contentFrom": 0.55,
-            // "goo": 14,
-            // "gooInset": 1,
-            // "gooStep": 1,
             // "swap": 160,
         },
         // "actions": [

@@ -1452,7 +1452,7 @@
               "label": "Style",
               "description": "Notch = glued to the top of the screen, joined to the edge by small inward curves, like a MacBook's notch. Pill = a separate rounded shape floating just below the edge, like the iPhone's Dynamic Island.",
               "type": "string",
-              "default": "notch",
+              "default": "pill",
               "choices": [
                 "notch",
                 "pill"
@@ -1478,18 +1478,18 @@
               "max": 400,
               "step": 1,
               "unit": "px",
-              "default": 120
+              "default": 90
             },
             {
               "key": "island.rest.height",
               "label": "Height at rest",
-              "description": "How tall the notch is when nothing happens. A bit shorter than the bar, so it never touches the windows.",
+              "description": "How tall the notch is when nothing happens. A bit shorter than the bar, so it never touches the windows. The same as the music's (Now playing height), so the pill keeps one height whether music plays or not.",
               "type": "integer",
               "min": 10,
               "max": 80,
               "step": 1,
               "unit": "px",
-              "default": 28
+              "default": 32
             },
             {
               "key": "island.activityHeight",
@@ -2468,7 +2468,7 @@
               "min": 0,
               "max": 1,
               "step": 0.01,
-              "default": 0.5
+              "default": 0.62
             },
             {
               "key": "panel.blur.showAbove",
@@ -6135,7 +6135,7 @@
             {
               "key": "search.padding",
               "label": "Padding",
-              "description": "Space between the edges and the content: left and right of the search field, and all round inside the pill under it.",
+              "description": "Space between the edges and the content: left and right of the search field, and under your apps or the results.",
               "type": "integer",
               "min": 0,
               "max": 40,
@@ -6146,7 +6146,7 @@
             {
               "key": "search.fieldPadding",
               "label": "Field padding",
-              "description": "Space above and below the search field inside the notch: the notch's height while searching is the field's plus twice this.",
+              "description": "Space above the search field inside the notch (and below it while nothing shows under it).",
               "type": "integer",
               "min": 0,
               "max": 40,
@@ -6157,13 +6157,13 @@
             {
               "key": "search.gap",
               "label": "Notch to pill gap",
-              "description": "Space between the notch (the search field) and the pill under it (your apps or the results).",
+              "description": "Space between the search field and your apps or the results under it.",
               "type": "integer",
               "min": 0,
               "max": 30,
               "step": 1,
               "unit": "px",
-              "default": 8
+              "default": 16
             },
             {
               "key": "search.inputHeight",
@@ -6639,121 +6639,6 @@
           "title": "The pill under the field",
           "description": "How the pill holding your apps and the results comes and goes under the notch.",
           "settings": [
-            {
-              "key": "search.panel.startAt",
-              "label": "Comes out at",
-              "description": "How far the notch has opened (its size, as a share of the search's) when the pill under it starts to come out. Lower = sooner, the two growing together; 1 = only once the notch is fully open.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "default": 0.6,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.split",
-              "label": "Split spring",
-              "description": "How the pill splits off the notch and springs into place when the search opens. Lower damping bounces more.",
-              "type": "spring",
-              "default": {
-                "response": 0.36,
-                "dampingFraction": 0.8
-              },
-              "advanced": true
-            },
-            {
-              "key": "search.panel.merge",
-              "label": "Merge spring",
-              "description": "How fast the pill is swallowed back into the notch when the search closes. Quicker than the notch's own shrinking, so the notch eats it rather than both heading to one point. No bounce by default.",
-              "type": "spring",
-              "default": {
-                "response": 0.24,
-                "dampingFraction": 1
-              },
-              "advanced": true
-            },
-            {
-              "key": "search.panel.mergeGapAt",
-              "label": "Closing: joins the notch at",
-              "description": "Closing, the pill's top rises into the notch first, so the two are one liquid shape while the rest of it is drawn in. This is how far along the closing (1 = at its place, 0 = gone) the gap is already closed: higher closes it sooner.",
-              "type": "number",
-              "min": 0,
-              "max": 1,
-              "step": 0.05,
-              "default": 0.75,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.birthWidth",
-              "label": "Starting width",
-              "description": "How wide the pill is as it starts to come out from under the notch, as a share of its full width (never wider than the notch's flat bottom).",
-              "type": "number",
-              "min": 0.05,
-              "max": 1,
-              "step": 0.05,
-              "unit": "×",
-              "default": 0.35,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.birthHeight",
-              "label": "Starting height",
-              "description": "How tall the pill is as it starts to come out from under the notch.",
-              "type": "number",
-              "min": 2,
-              "max": 60,
-              "step": 1,
-              "unit": "px",
-              "default": 20,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.contentFrom",
-              "label": "Content appears at",
-              "description": "How far along its split the pill is before the apps or results inside it fade in (0 = at once, 1 = once it's in place). Closing, they fade out first.",
-              "type": "number",
-              "min": 0,
-              "max": 0.95,
-              "step": 0.05,
-              "default": 0.55,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.goo",
-              "label": "Liquid reach",
-              "description": "How liquid the split looks: the notch and the pill stay joined by a stretching neck until they're half this far apart, and the corner where the pill leaves the notch is filled in. 0 = no liquid, two separate shapes. Keep it under twice the gap, or the two never come apart.",
-              "type": "number",
-              "min": 0,
-              "max": 40,
-              "step": 1,
-              "unit": "px",
-              "default": 14,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.gooInset",
-              "label": "Liquid inset",
-              "description": "How far inside the notch's and the pill's outlines the liquid starts, so its edge never peeks out beside theirs.",
-              "type": "number",
-              "min": 0,
-              "max": 4,
-              "step": 0.25,
-              "unit": "px",
-              "default": 1,
-              "advanced": true
-            },
-            {
-              "key": "search.panel.gooStep",
-              "label": "Liquid detail",
-              "description": "Spacing of the points tracing the liquid's edge. Smaller is smoother and costs a little more while it moves.",
-              "type": "number",
-              "min": 0.25,
-              "max": 4,
-              "step": 0.25,
-              "unit": "px",
-              "default": 1,
-              "advanced": true
-            },
             {
               "key": "search.panel.swap",
               "label": "Apps / results crossfade",

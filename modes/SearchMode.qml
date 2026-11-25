@@ -17,9 +17,9 @@ import "../widgets"
 // "prefix" = only after one of its prefixes, "off" = never. Typing a prefix (search.<kind>.prefixes: f:,
 // s:, =, w:...) at the start turns into that kind's pill and searches only it, whatever its mode;
 // Backspace on an empty field removes the pill. Files: Enter opens, Shift+Enter shows in the file manager.
-// Two pills, like Spotlight (2026-11-24): the notch grows into the search field only (it lives in the
-// notch: Mod+Space, `qs ipc call island toggle search`, the logo's menu), and a second black pill hangs
-// under it (Island.below, out of the notch's clip) with everything else:
+// One pill: it lives in the notch (Mod+Space, `qs ipc call island toggle search`, the logo's menu), the
+// field on top and everything else under it (2026-11-26: a second pill splitting off the notch was tried
+// for two days, its animations looked odd):
 //  - nothing typed: the grid. Favorites first (Sys.pins: panels, apps, commands; each row centred), then
 //    "All apps" (every app by name, a GridView: only the tiles on screen exist). One selection across
 //    both; arrows move (Up / Down: the tile above / below), Page Up / Down a screenful, Home / End, Tab;
@@ -32,8 +32,7 @@ import "../widgets"
 //    keys, which keep the selection in view), edges fading. A ListView (only the rows on screen exist)
 //    whose model only carries each row's group, updated in place; rows read their result by index.
 // The keyboard never leaves the field (typing always types); the two contents crossfade as you type or
-// clear it, the pill's height springing like the notch. The pill splits off the notch once it's halfway open
-// (search.panel.startAt) and merges back into it when the launcher closes.
+// clear it, the notch's height springing to fit.
 IslandMode {
     id: mode
 
@@ -609,7 +608,7 @@ IslandMode {
         scrollAnim.to = y;
         scrollAnim.start();
     }
-    // the content height the pill under the notch is sized for: grows right away, shrinks only after typing
+    // the content height the notch is sized for: grows right away, shrinks only after typing
     // pauses, so it doesn't pump up and down on every keystroke
     property real shownHeight: 0
     onPlacedChanged: {
@@ -619,7 +618,7 @@ IslandMode {
         view.contentY = 0;   // new results start at the top
         refit();
     }
-    // the height wanted in the pill: the grid when nothing is typed, else the results. Worked out from the
+    // the height wanted under the field: the grid when nothing is typed, else the results. Worked out from the
     // sources (not the showGrid / viewHeight bindings, which may not have caught up yet inside the handler
     // that calls this: Qt doesn't order binding updates)
     function wantedHeight() {
@@ -640,7 +639,6 @@ IslandMode {
         interval: mode.layout.shrinkDebounce
         onTriggered: mode.shownHeight = mode.wantedHeight()
     }
-    onShownHeightChanged: syncPane()
 
     // fromKey: triggered by Enter, so hold the keyboard until it's released. Only once we know the mode
     // closes/switches: holding moves focus away from the field, which killed the launcher if it stayed open.
@@ -679,15 +677,12 @@ IslandMode {
         mode.requestState("idle");
     }
 
-    // ---- size: the notch holds only the field; the rest is in the pill under it ----
+    // ---- size: the field, then (search.gap under it) the grid or the results, all in the notch ----
     implicitWidth: layout.width
-    implicitHeight: 2 * layout.fieldPadding + layout.inputHeight
+    implicitHeight: layout.fieldPadding + layout.inputHeight + (shownHeight > 0 ? layout.gap + shownHeight + layout.padding : layout.fieldPadding)
 
     // ---- reset on open (keyboard focus goes to `input`, see keyTarget) ----
     onActiveChanged: {
-        // the pill waits for the field to appear in the notch: cleared first, on every opening and
-        // closing (it stayed true from the last opening, and the reset below (refit -> shownHeight ->
-        // syncPane) started the pill with the notch still tiny: every opening but the first, 2026-11-24)
         if (active) {
             scope = "";
             input.text = "";
@@ -704,14 +699,12 @@ IslandMode {
             shrinkDebounce.stop();
             shownHeight = 0;
             refit();   // the grid (nothing typed)
-            // the pill comes once the notch is far enough along (paneReady)
         }
-        syncPane();
     }
 
     // ---- keys ----
-    // The keyboard never leaves the field: typing always types, these move the selection in the pill under
-    // it (the grid or the results). Sets event.accepted when the key was used.
+    // The keyboard never leaves the field: typing always types, these move the selection under it (the grid
+    // or the results). Sets event.accepted when the key was used.
     //  - Escape closes; Enter opens the selection (Shift+Enter on a file: show it in Files)
     //  - Backspace at the very start removes the pill; Ctrl+P adds / removes a favorite
     //  - the grid: arrows move between tiles (Up / Down: the tile above / below), Ctrl+Left / Right move a
@@ -765,74 +758,6 @@ IslandMode {
             return;
         }
         event.accepted = true;
-    }
-
-    // ---- the pill under the notch (search.panel.*) ----
-    // Like Spotlight's Liquid Glass: the pill isn't faded in, it splits off the notch. It's born small and
-    // tucked behind the notch's bottom edge, springs down and out to its place and size (search.panel.split),
-    // and while the two are close a liquid neck joins them, thinning until it snaps (pane.goo: the two
-    // shapes' smooth union, a metaball). Its content fades in once it's mostly out (contentFrom). Closing
-    // plays it backwards, without a bounce (merge): the content goes first, the pill is drawn back into
-    // the notch. It comes once the notch is search.panel.startAt of the way to its size (the notch first,
-    // but not waiting for it to finish: that read as slow). While shown, its height springs like the
-    // notch's (island.expand / island.shrink).
-    // the notch is far enough along (the notch's size against the launcher's) for the pill to
-    // come out of it. A binding on the opening itself, never a flag left from the last one (one stayed true
-    // and started the pill with the notch still tiny, every opening but the first, 2026-11-24)
-    // (measured here, not read from IslandMode.progress: that one says 1 while the mode is inactive, and
-    // on activation this binding saw it before it updated: a one-instant true that started the pill)
-    readonly property bool paneReady: active && !!island && Math.min(island.width / fullWidth, island.height / fullHeight) >= layout.panel.startAt
-    onPaneReadyChanged: syncPane()
-    function syncPane() {
-        const target = 2 * layout.padding + shownHeight;
-        if (active && paneReady && shownHeight > 0) {
-            // out of sight (merged, or still settling behind the notch from the last closing): take the
-            // new height at once, so it doesn't spring between two contents while it splits off
-            if (!pane.visible || pane.split <= 0)
-                pane.jumpTo(target);
-            else
-                pane.springTo(target);
-            paneMerge.stop();
-            if (pane.split < 1 && !paneSplit.running) {
-                // a fresh opening takes the opening's path; reopened halfway through a closing, it keeps
-                // the closing's path (taking the other at the same split jumped the pill down): the notch
-                // spits it back out. Both paths end at the same place
-                if (pane.split <= 0)
-                    pane.merging = false;
-                paneSplit.start();
-            }
-        } else if ((pane.split > 0 || paneSplit.running) && !paneMerge.running) {
-            paneSplit.stop();
-            pane.merging = true;
-            paneMerge.start();
-        }
-    }
-    SpringAnimation {
-        id: paneSplit
-        target: pane
-        property: "split"
-        to: 1
-        spring: Config.spring(mode.layout.panel.split).spring
-        damping: Config.spring(mode.layout.panel.split).damping
-        epsilon: 0.001
-    }
-    SpringAnimation {
-        id: paneMerge
-        target: pane
-        property: "split"
-        to: 0
-        spring: Config.spring(mode.layout.panel.merge).spring
-        damping: Config.spring(mode.layout.panel.merge).damping
-        epsilon: 0.001
-    }
-    // its part of the window takes the pointer (the gap above it too, so the pointer never crosses
-    // "nothing" between the notch and the pill)
-    Binding {
-        target: mode.island ? mode.island.below : null
-        property: "area"
-        when: pane.visible
-        value: Qt.rect(pane.x, 0, pane.width, pane.y + Math.max(pane.height, pane.bodyY + pane.bodyHeight))
-        restoreMode: Binding.RestoreBindingOrValue
     }
 
     // ---- the field, in the notch ----
@@ -951,209 +876,26 @@ IslandMode {
         }
     }
 
-    // ---- the pill: hung under the notch (Island.below, set by shell.qml), out of the notch's clip ----
-    // `pane` is its place at rest (the layout, the pointer's area); `body` is the shape drawn now, which
-    // the split moves from behind the notch to that place. Drawn behind the notch (underNotch comes before
-    // the Island in shell.qml), so whatever is still under it is hidden.
+    // ---- the list, in the same notch under the field (search.gap below it) ----
+    // The notch's height follows shownHeight (implicitHeight): it springs like any notch resize, and the
+    // list is clipped by the notch meanwhile.
     Item {
         id: pane
-        parent: mode.island && mode.island.below ? mode.island.below : mode
-        x: -width / 2
-        y: mode.layout.gap
-        width: mode.layout.width
-        height: h
-
-        readonly property var look: mode.layout.panel
-        // 0 = merged into the notch, 1 = at its place (a little past it while it bounces)
-        property real split: 0
-        // hidden once the body is back behind the notch (the rest of the merge spring settles out of sight)
-        visible: paneSplit.running || (split > 0 && bodyY + bodyHeight > notchBottom + 0.5)
-
-        // the notch, in the pill's coordinates (underNotch rides its bottom centre)
-        readonly property Item notch: mode.island
-        readonly property real notchWidth: notch ? notch.width : width
-        readonly property real notchHeight: notch ? notch.height : 0
-        readonly property real notchCorner: notch ? (notch.attached ? notch.attachedCorner : notch.corner) : 0
-        readonly property real notchBottom: -y
-
-        // the body now: born look.birthWidth of its width (never wider than the notch's flat bottom) and
-        // look.birthHeight tall, hidden just above the notch's bottom edge; at split 1, the pane itself.
-        // Opening, it moves out and grows as one. Closing (`merging`, 2026-11-25, the user: "more like one
-        // eating the other while shrinking", not two shapes heading to one point): its top rises into the
-        // notch first (by look.mergeGapAt, so the liquid joins them from the start), and its bottom edge
-        // rises after it, the pill swallowed by the notch, on a quicker spring than the notch's (merge)
-        property bool merging: false
-        readonly property real birthWidth: Math.max(0, Math.min(width * look.birthWidth, notchWidth - 2 * notchCorner))
-        readonly property real birthY: notchBottom - look.birthHeight
-        readonly property real bodyWidth: Math.max(0, birthWidth + (width - birthWidth) * split)
-        readonly property real topShown: merging ? Math.max(0, Math.min(1, (split - look.mergeGapAt) / Math.max(0.001, 1 - look.mergeGapAt))) : split
-        readonly property real bodyY: birthY + (0 - birthY) * topShown
-        readonly property real bodyBottom: merging ? notchBottom + (height - notchBottom) * split : bodyY + look.birthHeight + (height - look.birthHeight) * split
-        readonly property real bodyHeight: Math.max(0, bodyBottom - bodyY)
-        readonly property real bodyX: (width - bodyWidth) / 2
-        readonly property real bodyCorner: Math.min(Config.corner("island", bodyHeight), bodyHeight / 2)
-        // the content: fades in over the last part of the split (and out first when merging)
-        readonly property real contentShown: Math.max(0, Math.min(1, (split - look.contentFrom) / Math.max(0.001, 1 - look.contentFrom)))
-
-        // the height: jumps when it appears, springs while it's shown (direction set before the value, so
-        // the Behavior picks the right spring)
-        property real h: 0
-        property bool shrinking: false
-        property bool jumping: false
-        readonly property var motion: Config.spring(shrinking ? Config.island.shrink : Config.island.expand)
-        function jumpTo(v) {
-            jumping = true;
-            h = v;
-            jumping = false;
-        }
-        function springTo(v) {
-            if (v === h)
-                return;
-            shrinking = v < h;
-            h = v;
-        }
-        Behavior on h {
-            enabled: !pane.jumping
-            SpringAnimation {
-                spring: pane.motion.spring
-                damping: pane.motion.damping
-                epsilon: 0.5
-            }
-        }
-
-        // the notch's colors (it isn't inside the notch, so it doesn't inherit them)
-        palette.window: Config.island.color
-        palette.windowText: Config.colors.text
-        palette.placeholderText: Config.colors.secondary
-
-        // ---- the liquid between the notch and the pill ----
-        // The smooth union of the two shapes (signed distances joined by a polynomial smooth-min of reach
-        // look.goo): it fills the corner where the pill comes out from under the notch, then stretches into
-        // a neck that thins and snaps once they're look.goo / 2 apart, the way Liquid Glass shapes split.
-        // Solved row by row (each row's edge found by bisection) only while they're that close; elsewhere
-        // the union is just the two shapes, already drawn. Both shapes are taken a hair inside their drawn
-        // outline (look.gooInset), so only the liquid itself shows.
-        function boxDistance(px, py, cx, cy, hw, hh, r) {
-            const qx = Math.abs(px - cx) - hw + r, qy = Math.abs(py - cy) - hh + r;
-            return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
-        }
-        readonly property real gap: bodyY - notchBottom
-        readonly property bool liquid: visible && notch !== null && look.goo > 0 && gap < look.goo / 2 && bodyHeight > 0
-        readonly property string gooPath: {
-            if (!liquid)
-                return "";
-            const k = look.goo, inset = look.gooInset, cx = width / 2;
-            // the notch: a box reaching far up (only its bottom matters), its bottom corners rounded
-            const nHalfW = notchWidth / 2 - inset, nR = Math.max(0, Math.min(notchCorner - inset, nHalfW));
-            const nHalfH = Math.max(notchHeight, k) * 4, nCy = notchBottom - inset - nHalfH;
-            const bHalfW = bodyWidth / 2 - inset, bHalfH = bodyHeight / 2 - inset;
-            if (bHalfW <= 0 || bHalfH <= 0)
-                return "";
-            const bR = Math.max(0, Math.min(bodyCorner - inset, bHalfW, bHalfH)), bCy = bodyY + bodyHeight / 2;
-            const field = (x, y) => {
-                const a = boxDistance(x, y, cx, nCy, nHalfW, nHalfH, nR);
-                const b = boxDistance(x, y, cx, bCy, bHalfW, bHalfH, bR);
-                const hh = Math.max(k - Math.abs(a - b), 0) / k;
-                return Math.min(a, b) - hh * hh * k / 4;
-            };
-            // the rows where the two can blend: from the notch's corners to below the pill's top corners
-            const top = notchBottom - Math.max(nR, k), bottom = Math.min(bodyY + bodyHeight, bodyY + Math.max(bR, k) + k);
-            const maxHalf = Math.max(nHalfW, bHalfW) + k;
-            const step = look.gooStep;
-            const n = v => v.toFixed(2);
-            let path = "", left = [];
-            const flush = () => {
-                if (left.length > 1) {
-                    path += "M " + n(cx - left[0][0]) + " " + n(left[0][1]);
-                    for (let i = 1; i < left.length; i++)
-                        path += " L " + n(cx - left[i][0]) + " " + n(left[i][1]);
-                    for (let i = left.length - 1; i >= 0; i--)
-                        path += " L " + n(cx + left[i][0]) + " " + n(left[i][1]);
-                    path += " Z ";
-                }
-                left = [];
-            };
-            for (let y = top; y <= bottom + step / 2; y += step) {
-                if (field(cx, y) >= 0) {
-                    flush();
-                    continue;
-                }
-                let lo = 0, hi = maxHalf;
-                for (let i = 0; i < 14; i++) {
-                    const mid = (lo + hi) / 2;
-                    if (field(cx + mid, y) < 0)
-                        lo = mid;
-                    else
-                        hi = mid;
-                }
-                left.push([lo, y]);
-            }
-            flush();
-            return path;
-        }
-        Shape {
-            visible: pane.liquid
-            preferredRendererType: Shape.CurveRenderer
-            ShapePath {
-                fillColor: Config.island.color
-                strokeColor: "transparent"
-                strokeWidth: -1
-                PathSvg {
-                    path: pane.gooPath
-                }
-            }
-        }
-
-        // ---- the pill's own shape ----
-        Rectangle {
-            x: pane.bodyX
-            y: pane.bodyY
-            width: pane.bodyWidth
-            height: pane.bodyHeight
-            visible: Config.island.cornerSmoothing <= 0
-            radius: pane.bodyCorner
-            color: Config.island.color
-        }
-        Shape {
-            x: pane.bodyX
-            y: pane.bodyY
-            width: pane.bodyWidth
-            height: pane.bodyHeight
-            visible: Config.island.cornerSmoothing > 0
-            preferredRendererType: Shape.CurveRenderer
-            ShapePath {
-                fillColor: Config.island.color
-                strokeColor: "transparent"
-                strokeWidth: -1
-                PathSvg {
-                    path: pane.bodyWidth > 0 && pane.bodyHeight > 0 ? Config.roundedRectPath(pane.bodyWidth, pane.bodyHeight, pane.bodyCorner, Config.island.cornerSmoothing) : ""
-                }
-            }
-        }
-
-        // the content, at its place in the pane, cut to the body while it splits
+        y: mode.layout.fieldPadding + mode.layout.inputHeight + mode.layout.gap
+        width: mode.implicitWidth
+        height: mode.shownHeight
         Item {
-            id: bodyClip
-            x: pane.bodyX
-            y: pane.bodyY
-            width: pane.bodyWidth
-            height: pane.bodyHeight
-            clip: pane.split < 1
-            opacity: pane.contentShown
-            visible: opacity > 0
+            anchors.fill: parent
             Item {
-                x: -bodyClip.x
-                y: -bodyClip.y
-                width: pane.width
-                height: pane.height
+                anchors.fill: parent
 
-                // the content, clipped to the pill while its height springs
+                // the content, clipped to its height (the grid or the results)
                 Item {
                     id: paneContent
                     x: mode.layout.padding
-                    y: mode.layout.padding
+                    y: 0
                     width: mode.contentWidth
-                    height: Math.max(0, pane.height - 2 * mode.layout.padding)
+                    height: pane.height
                     clip: true
 
                     // ---- the grid: nothing typed ----
@@ -1341,7 +1083,7 @@ IslandMode {
                             }
 
                             // The pointer selects the tile under it only when it really moves (from its own scene
-                            // position: the pill scales as it appears, which moves a tile under a still pointer). The
+                            // position: the launcher scales as it appears, which moves a tile under a still pointer). The
                             // first position seen after opening only records where the pointer is. Scrolling (wheel,
                             // drag) selects the tile that ends up under it; the keyboard's own scrolling doesn't.
                             HoverHandler {

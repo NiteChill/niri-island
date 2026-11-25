@@ -96,9 +96,7 @@ services/              singletons (registered in services/qmldir)
 island/
   Island.qml           the springing surface (notch and dropdown card): a path shape (continuous corners,
                        attached = notch flares), the active mode's size, the palette its content inherits
-                       (fill / text / secondary), keepSize (the card fading out), jumping (no spring),
-                       below (shell.qml's underNotch: where a mode hangs a surface of its own under the
-                       notch, out of its clip, + the `area` that takes the pointer: the launcher's pill)
+                       (fill / text / secondary), keepSize (the card fading out), jumping (no spring)
   IslandMode.qml       base type for modes: active state, requestState, keyboard focus, Escape, transition
 modes/                 one file per mode (name = Activity kind / dropdown name)
   AllModes.qml         the notch's modes: RestMode (the small empty notch: hover grows it, click = center, a dot
@@ -236,7 +234,10 @@ Notifications are not notch activities: they go through Inbox (cards + center).
   once (a `git switch`, a merge): Config rebuilds when either FileView finishes reloading, and the first one
   read the other mid-reload. The last reload sees both whole files and wins, so it heals itself (checked
   2026-11-25: touching each alone reloads silently). Merge without rewriting the working files: commit on the
-  branch, `git branch -f main <branch>`, then `git switch main`.
+  branch, `git branch -f main <branch>`, then `git switch main`. Worse, after that `git switch` + merge the
+  live shell stopped reloading at all (no "Reloading" for any later edit; the files were replaced and its
+  watches didn't follow): it ran the old code until restarted (`kill <pid>; setsid -f quickshell`). After any
+  git operation that rewrites files, check the live log shows a reload.
 - Quick load check: `timeout -s INT 4 qs -p . 2>&1 | grep -E "WARN|ERROR"` (SIGINT so the output flushes;
   "Could not register notification server" is expected for a second instance).
 - **Scratch copy** (the default way to test): `python3 tools/scratch-copy.py <scratchpad>/copy --tester
@@ -484,8 +485,10 @@ Each piece keeps the layout that suits it, but they all follow these rules.
 ### The notch
 - What it is (2026-11-23, second design round): what happens now AND what it holds. Notifications left it
   for the clock (the user agreed: macOS pairs them with the calendar).
-- At rest (RestMode): island.rest.width x height (120 x 28: "a bit less wide and less tall, so it's
-  calmer when it has nothing"); the music keeps its own 140 x 32 (nowPlaying.width / height).
+- At rest (RestMode): island.rest.width x height (90 x 32 since 2026-11-26: the music's
+  height, so the pill keeps one height whether music plays or not ("same height even when idle"), and
+  0.75 of the old 120 wide; it was 120 x 28, "calmer when it has nothing"); the music keeps its own
+  140 x 32 (nowPlaying.width / height).
 - Opening the notch (2026-11-23, after a peek design was tried and dropped: "no preview mode at all";
   hover opening was dropped too, "click only"): a click on the resting notch or the music opens the real
   player (MediaMode) or the real shelf (ShelfMode), Activity.openNotch: the shelf when something was put
@@ -579,37 +582,12 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   the notch is the place you talk to the system, and it was a notch mode once already): a notch panel
   (Activity.notchPanels), dark like the notch; the notch Island's extraModes = the dropdowns', so the
   launcher still lists them. The tabs pill hides while it's open.
-- Two pills, like Spotlight (2026-11-24, the user's idea, "a separate pill for the launcher to have the
-  result ... all apps in the second pill under the search"): the notch grows into the search field only
-  (search.fieldPadding: 60 px tall), and a second black pill (search.gap under it, island corners)
-  holds the rest. It's SearchMode's own `pane`, reparented to Island.below (shell.qml's underNotch, at
-  the notch's bottom centre, riding it) so the notch's clip doesn't cut it; it sets underNotch.area for
-  the window's input mask (the gap above it included). It comes once the notch is search.panel.startAt
-  (0.6) of the way to its size (paneReady, a binding on the notch's size: IslandMode.progress reads 1 for
-  an instant at activation, which started it at once) and springs its height like the notch. It first
-  waited for the field to appear + 40 ms (~380 ms, then a 0.5 s spring): "takes a long time and isn't
-  practical"; ~120 ms with a 0.38 s spring was then "a bit slower ... 70% of the way" (~220 ms, 0.42 s,
-  in place at ~495 ms); then "make it arrive in .4" (2026-11-24): starts at ~160 ms, 0.36 s spring, in
-  place at ~415 ms (measured over 6 openings). It isn't faded (2026-11-24, "it just fades in and feels a bit weird"; the
-  user: "mimic as close as possible what Apple's doing"): it splits off the notch like Liquid Glass
-  shapes. pane.split (0 -> 1, search.panel.split spring, a slight bounce) moves the drawn body from
-  birthWidth x birthHeight tucked behind the notch's bottom edge (underNotch is declared before the
-  Island: behind it) to its place; pane.goo draws the two shapes' smooth union (signed distances +
-  polynomial smooth-min of reach search.panel.goo, solved row by row by bisection, only while they're
-  closer than goo / 2: ~0-1 ms a frame), so the corner where it leaves the notch fills in and a neck
-  stretches and snaps. The content fades in after contentFrom. Closing: merge spring (no bounce), the
-  content first, then the body is drawn back behind the notch. Measured: the split takes ~350 ms (before the quicker spring). No shader:
-  qsb isn't installed. "The animation varies between openings" (2026-11-24): paneReady was a flag that
-  stayed true from the last opening, and the opening's own reset (refit -> shownHeight -> syncPane)
-  started the pill at ~30 ms with the notch 130 px wide, every opening but the first. Now a binding; measured over 6 openings (from rest, 250 / 700 ms after a close, over a volume pop-up):
-  the pill starts at ~380 ms each time, the notch at 98 % of its width. Reopened while the last pill is
-  still settling out of sight, it takes its new height at once (jumps while !pane.visible).
-  Closing (2026-11-25, "it has to close faster so that it doesn't just look like two shapes going to a
-  target point and more like one eating the other while shrinking"): pane.merging changes the body's
-  path, not only the spring: its top rises into the notch first (by search.panel.mergeGapAt, so the liquid
-  joins them at once), its bottom edge rises after it, on a quicker merge spring (0.34 -> 0.24 s).
-  Frames: at 44 ms it's joined to the notch, mostly swallowed by ~200 ms (the old one was still a separate
-  pill travelling up at 310 ms).
+- One pill (2026-11-26, the user: "make the launcher be a single big pill again ... the animations look
+  odd with the two pills"): the field on top, then search.gap under it the grid or the results, all inside
+  the notch; its height (implicitHeight from shownHeight) springs like any notch resize and the notch
+  clips the list meanwhile. For two days (2026-11-24/25) the list was a second pill splitting off the
+  notch like Liquid Glass (Island.below / shell.qml's underNotch, a metaball neck, split / merge springs,
+  search.panel.startAt / split / merge / goo...): removed with its settings and Island.below.
   Nothing typed = the grid: the favorites (the old pins) then "All apps" (search.apps.*: every app by
   name, a GridView whose header holds the favorites and the title; grid coordinates start at
   mode.gridTop = the header's y, negative). One selection across both (tileSelected: favorites, then
@@ -939,7 +917,8 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   field's × badge), a card's picture. Circles by meaning stay circles (today in the calendar, battery
   ticks, the switch's knob); screen corners (screenCorners.radius) are the display's. Rejected before: a
   0-1 roundness slider (scaling every corner; in-between values couldn't all be checked).
-- `island.style` (2026-11-23, default "notch"): flat top glued to the screen edge, concave flares (the
+- `island.style` (2026-11-23; default "pill" since 2026-11-26, the user: "the pill looks better"; it was
+  "notch"): flat top glued to the screen edge, concave flares (the
   style's `flare` corner) joining it to the edge, bottom corners the style's `attached` corner; "pill" floats
   island.gap below the edge with `island` corners all round. The flares are drawn outside the island's
   bounds (not clickable). (It replaced island.attachToTop.)
@@ -963,10 +942,11 @@ Each piece keeps the layout that suits it, but they all follow these rules.
   in every 1.5 s, 12 s, three runs each, noisy): blur off 108 / 116 / 133 CPU ticks, on 121 / 143 / 191
   (median +23 %); none at rest. Rebuilding the regions on every sub-pixel step was worse (149 vs 112 in one
   pair): Glass coalesces (15 s: 1107 Frost changes -> 706 refreshes -> 321 updates sent). The blur can't fade,
-  so it's there only while presence > panel.blur.showAbove. The user's niri config has a `blur` block and
+  so it's there only while presence > panel.blur.showAbove. "The blur gets stuck after a panel closes" (2026-11-26, not reproduced): every close / switch / banner / center / reload path in a scratch copy ended with Glass.rects empty and set_blur_region(nil) committed (WAYLAND_DEBUG). Next time it sticks: `qs ipc call glass dump` (sent = []: the stale blur is niri's). The user's niri config has a `blur` block and
   an overlay layer-rule with background-effect (xray false). "Too blurry, make it more see through"
   (2026-11-25): niri's blur went from 3 passes / offset 3 to 2 / 2 (~/.config/niri/config.kdl, `niri
-  validate`), the card's tint from 0.68 / 0.72 (dark / light) to 0.5 (panel.blur.opacity, one since the light theme went). It can't be captured from here (no grim;
+  validate`), the card's tint from 0.68 / 0.72 (dark / light) to 0.5 (panel.blur.opacity, one since the light theme went), then 0.62 (2026-11-26, "a bit more dim, so
+  the text is more readable"). It can't be captured from here (no grim;
   never niri's screenshot action: the clipboard): preview pictures simulate it with a Gaussian blur.
 - No blur in the notch (2026-11-23: island.blur was removed, "against the design"). niri-settings may still write
   island.blur / blurOpacity / attachToTop into config.jsonc: check-config.py lists them as RETIRED (a

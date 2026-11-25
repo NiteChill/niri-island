@@ -19,8 +19,8 @@ import "services"
 //    under the clock's calendar
 //  - the dropdowns' card (surfaces/Dropdown.qml), under the bar item it was opened from
 //  - the notch (island/Island.qml + modes/AllModes.qml): what happens now (volume, alerts, the music) and
-//    what it holds (the shelf: drop files on it); a click opens the player or the shelf. The launcher's
-//    pill of apps and results hangs under it (underNotch)
+//    what it holds (the shelf: drop files on it); a click opens the player or the shelf. The launcher
+//    lives in it too (one pill: the field, then the apps or the results)
 // Activity says what is open and what the notch shows; `qs ipc call island toggle <name>` opens anything.
 ShellRoot {
     id: root
@@ -132,9 +132,6 @@ ShellRoot {
             Region {
                 item: revealEdge
             }
-            Region {
-                item: underArea
-            }
         }
         // click outside to close (island.clickOutsideCloses), on this screen: while something is open the
         // whole window takes the pointer, and a press that lands on nothing drawn closes it. Declared first,
@@ -150,7 +147,7 @@ ShellRoot {
             acceptedButtons: Qt.AllButtons
             // (x, y) in this item lands on nothing drawn
             function missesAll(x, y) {
-                for (const it of [barArea, dropArea, bridgeArea, tabsArea, stackArea, dropHold, underArea, island])
+                for (const it of [barArea, dropArea, bridgeArea, tabsArea, stackArea, dropHold, island])
                     if (it.width > 0 && it.contains(it.mapFromItem(outside, x, y)))
                         return false;
                 return true;
@@ -334,23 +331,6 @@ ShellRoot {
             y: island.y + island.height + Config.island.tabs.gap
         }
 
-        // under the notch, at its bottom centre: where a notch mode hangs a surface of its own (the launcher's
-        // pill of apps and results, Island.below); `area` (set by the mode, in this item's coordinates) is
-        // the part that takes the pointer
-        Item {
-            id: underNotch
-            property rect area: Qt.rect(0, 0, 0, 0)
-            x: island.x + island.width / 2
-            y: island.y + island.height
-        }
-        Item {
-            id: underArea
-            x: underNotch.x + underNotch.area.x
-            y: underNotch.y + underNotch.area.y
-            width: underNotch.area.width
-            height: underNotch.area.height
-        }
-
         // hovering pauses the timer of what's shown
         Binding {
             target: Activity
@@ -373,7 +353,6 @@ ShellRoot {
             anchors.horizontalCenter: parent.horizontalCenter
             // the launcher (one of the notch's panels) lists the dropdowns too
             extraModes: dropdown.surface.modeList
-            below: underNotch
 
             // a key press that switches modes calls holdKeyboard() first, so keyHeld says "from the keyboard"
             onRequestState: name => root.open(name, root.keyHeld)
